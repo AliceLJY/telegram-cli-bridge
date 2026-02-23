@@ -165,17 +165,50 @@ Add a caption to tell CC what to do with the file.
 
 ## Ecosystem
 
-> 这些项目配合使用效果更好 / Better together with these projects:
+This bridge is part of a personal AI infrastructure built around Claude Code and [OpenClaw](https://openclaw.com). Each project handles one layer — from task execution to content publishing. They work independently, but together they form a complete remote-first AI workflow.
 
-- [openclaw-worker](https://github.com/AliceLJY/openclaw-worker) — Task queue + CC Worker that powers this bridge
-- [openclaw-cc-bridge](https://github.com/AliceLJY/openclaw-cc-bridge) — Discord → Claude Code bridge (via OpenClaw Bot)
-- [openclaw-cc-pipeline](https://github.com/AliceLJY/openclaw-cc-pipeline) — Multi-turn Claude Code orchestration via Discord
-- [content-alchemy](https://github.com/AliceLJY/content-alchemy) — 7-stage content pipeline, from idea to WeChat article
-- [digital-clone-skill](https://github.com/AliceLJY/digital-clone-skill) — Create digital clones from corpus data
+> 这个桥是围绕 Claude Code 和 OpenClaw 搭建的个人 AI 基础设施的一部分。每个项目负责一层——从任务执行到内容发布。可以独立使用，组合起来就是完整的远程 AI 工作流。
+
+```
+                          ┌─ telegram-cc-bridge (you are here)
+                          │     Telegram → async tasks
+        ┌─────────────┐   │
+Phone ──┤  task-api    ├───┼─ openclaw-cc-bridge
+        │  (worker)    │   │     Discord → CC commands
+        └──────┬───────┘   │
+               │           └─ openclaw-cc-pipeline
+         Claude Code            Multi-turn orchestration
+               │
+        ┌──────┴───────┐
+        │   Skills     │
+        ├──────────────┤
+        │ content-     │──→ WeChat articles
+        │ alchemy      │
+        ├──────────────┤
+        │ digital-     │──→ AI personas
+        │ clone-skill  │
+        └──────────────┘
+```
+
+| Project | Layer | What it does |
+|---------|-------|-------------|
+| **[openclaw-worker](https://github.com/AliceLJY/openclaw-worker)** | Backend | Security-first task queue + CC Worker. The engine behind all bridges — deploy on cloud or local Docker |
+| **[telegram-cc-bridge](https://github.com/AliceLJY/telegram-cc-bridge)** | Frontend | *This project.* Telegram as async remote control for Claude Code |
+| **[openclaw-cc-bridge](https://github.com/AliceLJY/openclaw-cc-bridge)** | Frontend | Discord as remote control for Claude Code, via OpenClaw Bot plugin |
+| **[openclaw-cc-pipeline](https://github.com/AliceLJY/openclaw-cc-pipeline)** | Orchestration | Multi-turn Claude Code sessions from Discord — complex tasks, step by step |
+| **[content-alchemy](https://github.com/AliceLJY/content-alchemy)** | Skill | 7-stage content pipeline: Research → Analysis → Writing → Illustration → WeChat Publishing |
+| **[openclaw-content-alchemy](https://github.com/AliceLJY/openclaw-content-alchemy)** | Skill (Bot) | Content Alchemy packaged for OpenClaw bots — 56 art styles, auto-rotation |
+| **[digital-clone-skill](https://github.com/AliceLJY/digital-clone-skill)** | Skill | 6-stage workflow to create AI digital clones from corpus data |
+
+> All projects are MIT licensed and built by one person with zero programming background — proof that AI tools can genuinely empower non-developers.
+>
+> 所有项目 MIT 开源，由一个零编程基础的人独立搭建——AI 工具确实能赋能非开发者。
 
 ## Author
 
 **小试AI** — WeChat Public Account「我的AI小木屋」
+
+Not a developer. Medical background, works in cultural administration, self-taught AI the hard way. Writes about AI hands-on experience, real-world pitfalls, and the human side of technology.
 
 > 医学出身，文化口工作，AI 野路子。公众号记录 AI 实操、踩坑、人文思考。
 
