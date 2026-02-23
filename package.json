@@ -1,0 +1,13 @@
+{
+  "name": "telegram-cc-bridge",
+  "version": "1.0.0",
+  "description": "Telegram → Claude Code async bridge via task-api",
+  "main": "bridge.js",
+  "scripts": {
+    "start": "bun bridge.js"
+  },
+  "dependencies": {
+    "grammy": "^1.40.0",
+    "https-proxy-agent": "^7.0.6"
+  }
+}
