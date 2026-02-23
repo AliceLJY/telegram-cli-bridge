@@ -163,6 +163,20 @@ Add a caption to tell CC what to do with the file.
 6. Session remembered         →  Follow-up messages share context
 ```
 
+### Multi-Frontend Architecture
+
+The task-api backend supports multiple frontends simultaneously. You can use both Discord and Telegram as entry points to the same Claude Code worker:
+
+> task-api 后端同时支持多个前端入口。Discord 和 Telegram 可以同时连接同一个 CC Worker，相当于两个独立的 CC 窗口。
+
+```
+Discord  ──→ openclaw-cc-bridge ──┐
+                                  ├──→ task-api ──→ CC Worker ──→ Claude Code
+Telegram ──→ telegram-cc-bridge ──┘
+```
+
+Each frontend maintains its own session. Run both and you get two independent CC windows — one on Discord, one on Telegram.
+
 ## Ecosystem
 
 This bridge is part of a personal AI infrastructure built around Claude Code and [OpenClaw](https://openclaw.com). Each project handles one layer — from task execution to content publishing. They work independently, but together they form a complete remote-first AI workflow.
@@ -211,6 +225,8 @@ Phone ──┤  task-api    ├───┼─ openclaw-cc-bridge
 Not a developer. Medical background, works in cultural administration, self-taught AI the hard way. Writes about AI hands-on experience, real-world pitfalls, and the human side of technology.
 
 > 医学出身，文化口工作，AI 野路子。公众号记录 AI 实操、踩坑、人文思考。
+
+<img src="./assets/wechat_qr.jpg" width="200" alt="WeChat QR Code">
 
 ## License
 
