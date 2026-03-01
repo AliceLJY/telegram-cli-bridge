@@ -4,7 +4,7 @@
 
 import { Bot, InlineKeyboard } from "grammy";
 import { HttpsProxyAgent } from "https-proxy-agent";
-import { mkdirSync, writeFileSync, readdirSync, statSync, unlinkSync } from "fs";
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, unlinkSync, existsSync } from "fs";
 import { join } from "path";
 
 // ── 配置 ──
@@ -37,6 +37,31 @@ const bot = new Bot(TOKEN, {
 const sessions = new Map();
 const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 小时不活跃自动开新会话
 
+// ── 会话历史持久化 ──
+const HISTORY_FILE = join(process.env.HOME, `Projects/telegram-cc-bridge/${CLI_TYPE.toLowerCase()}-sessions.json`);
+const MAX_HISTORY = 20;
+
+function loadHistory() {
+  try {
+    if (existsSync(HISTORY_FILE)) return JSON.parse(readFileSync(HISTORY_FILE, "utf8"));
+  } catch {}
+  return [];
+}
+
+function saveToHistory(sessionId, firstPrompt) {
+  const history = loadHistory();
+  // 已存在则更新时间
+  const existing = history.find((h) => h.sessionId === sessionId);
+  if (existing) {
+    existing.lastActive = Date.now();
+    writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+    return;
+  }
+  history.unshift({ sessionId, firstPrompt: firstPrompt.slice(0, 50), lastActive: Date.now() });
+  if (history.length > MAX_HISTORY) history.length = MAX_HISTORY;
+  writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+}
+
 function getSession(chatId) {
   const s = sessions.get(chatId);
   if (!s) return null;
@@ -47,8 +72,10 @@ function getSession(chatId) {
   return s.sessionId;
 }
 
-function setSession(chatId, sessionId) {
+function setSession(chatId, sessionId, firstPrompt) {
+  const isNew = !sessions.has(chatId) || sessions.get(chatId).sessionId !== sessionId;
   sessions.set(chatId, { sessionId, lastActive: Date.now() });
+  if (isNew && firstPrompt) saveToHistory(sessionId, firstPrompt);
 }
 
 // ── task-api 请求封装 ──
@@ -158,7 +185,7 @@ async function submitAndWait(ctx, prompt) {
 
     // 从结果中提取并保存 sessionId
     if (result.metadata?.sessionId) {
-      setSession(chatId, result.metadata.sessionId);
+      setSession(chatId, result.metadata.sessionId, prompt);
     }
 
     if (result.error) {
@@ -168,7 +195,7 @@ async function submitAndWait(ctx, prompt) {
       if (replies && result.stdout.length <= 4000) {
         const kb = new InlineKeyboard();
         for (const r of replies) {
-          kb.text(r, `reply:${r}`);
+          kb.text(r, `qr:${r}`);
         }
         await ctx.reply(result.stdout, { reply_markup: kb });
       } else {
@@ -195,6 +222,41 @@ bot.command("new", async (ctx) => {
   await ctx.reply("会话已重置，下条消息将开启新会话。");
 });
 
+// ── /sessions 命令：按钮式会话列表 ──
+bot.command("sessions", async (ctx) => {
+  const history = loadHistory();
+  if (!history.length) {
+    await ctx.reply("没有历史会话记录。");
+    return;
+  }
+  const current = getSession(ctx.chat.id);
+  const kb = new InlineKeyboard();
+  for (const h of history.slice(0, 8)) {
+    const short = h.sessionId.slice(0, 8);
+    const mark = current === h.sessionId ? " ✦当前" : "";
+    const time = new Date(h.lastActive).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }).slice(5, 16);
+    const topic = h.firstPrompt || "(空)";
+    kb.text(`${time} ${topic}${mark}`, `resume:${h.sessionId}`).row();
+  }
+  kb.text("🆕 开新会话", "action:new").row();
+  await ctx.reply(`${CLI_TYPE} 会话列表：`, { reply_markup: kb });
+});
+
+// ── 按钮回调：恢复会话 ──
+bot.callbackQuery(/^resume:/, async (ctx) => {
+  const sessionId = ctx.callbackQuery.data.replace("resume:", "");
+  setSession(ctx.chat.id, sessionId);
+  await ctx.answerCallbackQuery({ text: "已恢复 ✓" });
+  await ctx.editMessageText(`已恢复会话 \`${sessionId.slice(0, 8)}\`\n继续发消息即可。`, { parse_mode: "Markdown" });
+});
+
+// ── 按钮回调：新会话 ──
+bot.callbackQuery("action:new", async (ctx) => {
+  sessions.delete(ctx.chat.id);
+  await ctx.answerCallbackQuery({ text: "已重置 ✓" });
+  await ctx.editMessageText("会话已重置，下条消息将开启新会话。");
+});
+
 // ── /status 命令 ──
 bot.command("status", async (ctx) => {
   try {
@@ -212,8 +274,8 @@ bot.command("status", async (ctx) => {
 });
 
 // ── 按钮回调：快捷回复 ──
-bot.callbackQuery(/^reply:/, async (ctx) => {
-  const text = ctx.callbackQuery.data.replace("reply:", "");
+bot.callbackQuery(/^qr:/, async (ctx) => {
+  const text = ctx.callbackQuery.data.replace("qr:", "");
   await ctx.answerCallbackQuery({ text: `发送: ${text}` });
   await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
   await submitAndWait(ctx, text);
