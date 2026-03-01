@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Telegram → Codex/Gemini CLI 通用桥
+// Telegram → Codex/Gemini CLI 通用桥（支持会话续接）
 // 环境变量驱动：CLI_TYPE（显示名）+ CLI_ENDPOINT（API 路径）
 
 import { Bot, InlineKeyboard } from "grammy";
@@ -32,6 +32,24 @@ const bot = new Bot(TOKEN, {
     baseFetchConfig: fetchOptions,
   },
 });
+
+// ── 会话映射（chatId → { sessionId, lastActive }）──
+const sessions = new Map();
+const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 小时不活跃自动开新会话
+
+function getSession(chatId) {
+  const s = sessions.get(chatId);
+  if (!s) return null;
+  if (Date.now() - s.lastActive > SESSION_TIMEOUT) {
+    sessions.delete(chatId);
+    return null;
+  }
+  return s.sessionId;
+}
+
+function setSession(chatId, sessionId) {
+  sessions.set(chatId, { sessionId, lastActive: Date.now() });
+}
 
 // ── task-api 请求封装 ──
 async function apiPost(path, body) {
@@ -125,7 +143,11 @@ async function submitAndWait(ctx, prompt) {
   const processing = await ctx.reply(`${CLI_TYPE} 正在处理...`);
 
   try {
-    const task = await apiPost(CLI_ENDPOINT, { prompt, timeout: 600000 });
+    const body = { prompt, timeout: 600000 };
+    const sessionId = getSession(chatId);
+    if (sessionId) body.sessionId = sessionId;
+
+    const task = await apiPost(CLI_ENDPOINT, body);
     if (task.error) {
       await ctx.api.editMessageText(chatId, processing.message_id, `提交失败: ${task.error}`);
       return;
@@ -133,6 +155,11 @@ async function submitAndWait(ctx, prompt) {
 
     const result = await waitForResult(task.taskId);
     await ctx.api.deleteMessage(chatId, processing.message_id).catch(() => {});
+
+    // 从结果中提取并保存 sessionId
+    if (result.metadata?.sessionId) {
+      setSession(chatId, result.metadata.sessionId);
+    }
 
     if (result.error) {
       await sendLong(ctx, `${CLI_TYPE} 错误: ${result.error}`);
@@ -162,14 +189,22 @@ bot.use((ctx, next) => {
   return next();
 });
 
+// ── /new 命令：重置会话 ──
+bot.command("new", async (ctx) => {
+  sessions.delete(ctx.chat.id);
+  await ctx.reply("会话已重置，下条消息将开启新会话。");
+});
+
 // ── /status 命令 ──
 bot.command("status", async (ctx) => {
   try {
     const health = await fetch(`${API_URL}/health`);
+    const sessionId = getSession(ctx.chat.id);
     await ctx.reply(
       `${CLI_TYPE} Bridge\n` +
       `task-api: ${health.ok ? "在线" : "异常"}\n` +
-      `端点: ${CLI_ENDPOINT}`
+      `端点: ${CLI_ENDPOINT}\n` +
+      `当前会话: ${sessionId ? sessionId.slice(0, 8) + "..." : "无（下条消息开新会话）"}`
     );
   } catch (e) {
     await ctx.reply(`task-api 连接失败: ${e.message}`);
