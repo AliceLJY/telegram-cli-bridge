@@ -1,10 +1,12 @@
 {
-  "name": "telegram-cc-bridge",
-  "version": "1.0.0",
-  "description": "Telegram → Claude Code async bridge via task-api",
+  "name": "telegram-cli-bridge",
+  "version": "2.0.0",
+  "description": "Telegram → Claude Code / Codex / Gemini CLI async bridge via task-api",
   "main": "bridge.js",
   "scripts": {
-    "start": "bun bridge.js"
+    "start": "bun bridge.js",
+    "start:codex": "env $(cat .env.codex | xargs) bun cli-bridge.js",
+    "start:gemini": "env $(cat .env.gemini | xargs) bun cli-bridge.js"
   },
   "dependencies": {
     "grammy": "^1.40.0",
