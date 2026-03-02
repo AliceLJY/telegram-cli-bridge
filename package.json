@@ -5,8 +5,8 @@
   "main": "bridge.js",
   "scripts": {
     "start": "bun bridge.js",
-    "start:codex": "env $(cat .env.codex | xargs) bun cli-bridge.js",
-    "start:gemini": "env $(cat .env.gemini | xargs) bun cli-bridge.js"
+    "start:codex": "bun codex-bridge.js",
+    "start:gemini": "bun gemini-bridge.js"
   },
   "dependencies": {
     "grammy": "^1.40.0",
