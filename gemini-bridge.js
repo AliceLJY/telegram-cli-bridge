@@ -47,7 +47,7 @@ const recentTriggered = new Map();
 
 // ── 模型管理 ──
 const GEMINI_MODELS = [
-  { id: "gemini-2.5-flash", label: "2.5 Flash（稳定）" },
+  { id: "gemini-2.5-flash", label: "2.5 Flash（默认）" },
   { id: "gemini-2.5-pro", label: "2.5 Pro" },
   { id: "gemini-3-flash-preview", label: "3 Flash Preview" },
   { id: "gemini-3-pro-preview", label: "3 Pro Preview" },
