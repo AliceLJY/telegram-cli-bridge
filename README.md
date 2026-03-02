@@ -9,13 +9,16 @@ Supports **Claude Code**, **Codex CLI**, and **Gemini CLI** — each as an indep
 ## Architecture
 
 ```
-                     ┌─ bridge.js (.env)        → task-api /claude → Claude Code
-Phone (Telegram) ────┼─ cli-bridge.js (.env.codex)  → task-api /codex  → Codex CLI
-                     └─ cli-bridge.js (.env.gemini)  → task-api /gemini → Gemini CLI
+                     ┌─ bridge.js (.env)             → task-api /claude → Claude Code
+Phone (Telegram) ────┼─ codex-bridge.js (.env.codex)  → task-api /codex  → Codex CLI
+                     └─ gemini-bridge.js (.env.gemini) → task-api /gemini → Gemini CLI
                               ↑ poll result & send back to Telegram
 ```
 
-**v2.0**: Added `cli-bridge.js` — a generic bridge that supports any CLI backend via environment variables (`CLI_TYPE` + `CLI_ENDPOINT`). Each CLI gets its own Telegram bot, its own `.env` file, and its own LaunchAgent.
+**v3.0**: Split into dedicated bridges per CLI. Each bridge has its own session model tailored to the CLI's resume behavior:
+- **Codex**: UUID-based `--resume <sessionId>` — full session restore by ID
+- **Gemini**: `--resume latest` only — no UUID support, always resumes last session
+- **Claude Code**: UUID-based `--resume` (original bridge.js, unchanged)
 
 ## Features
 
@@ -102,7 +105,8 @@ cp .env.example .env
 | `TASK_API_TOKEN` | task-api auth token |
 | `HTTPS_PROXY` | Proxy for Telegram API (optional, for blocked regions) |
 
-**For `cli-bridge.js` (Codex / Gemini)** — use `.env.codex` or `.env.gemini`:
+**For `codex-bridge.js`** — use `.env.codex`:
+**For `gemini-bridge.js`** — use `.env.gemini`:
 
 | Variable | Description |
 |----------|-------------|
@@ -111,10 +115,8 @@ cp .env.example .env
 | `TASK_API_URL` | Same task-api endpoint |
 | `TASK_API_TOKEN` | Same task-api auth token |
 | `HTTPS_PROXY` | Same proxy (optional) |
-| `CLI_TYPE` | Display name: `Codex` or `Gemini` |
-| `CLI_ENDPOINT` | API path: `/codex` or `/gemini` |
 
-> 每个 CLI 用独立的 Telegram Bot（独立 token），通过 `CLI_TYPE` 和 `CLI_ENDPOINT` 区分后端。
+> 每个 CLI 用独立的 Telegram Bot（独立 token），各自的 bridge 文件已硬编码后端路径，无需额外配置。
 
 ## Usage
 
@@ -123,10 +125,10 @@ cp .env.example .env
 bun bridge.js
 
 # Codex CLI
-env $(cat .env.codex | xargs) bun cli-bridge.js
+env $(cat .env.codex | xargs) bun codex-bridge.js
 
 # Gemini CLI
-env $(cat .env.gemini | xargs) bun cli-bridge.js
+env $(cat .env.gemini | xargs) bun gemini-bridge.js
 ```
 
 ### macOS LaunchAgent (recommended)
@@ -157,11 +159,12 @@ For auto-start on login with crash recovery, create `~/Library/LaunchAgents/com.
 
 | Command | Description |
 |---------|-------------|
-| `/sessions` | List recent CC sessions with tap-to-restore buttons |
+| `/sessions` | List recent sessions with tap-to-restore buttons |
 | `/new` | Reset current session, next message starts fresh |
 | `/status` | Check task-api health and current session |
+| `/model` | Switch model (Codex: gpt-5.3-codex, o3, etc. / Gemini: 2.5-flash, 2.5-pro, etc.) |
 
-> `/sessions` 列出历史会话（按钮点选恢复）；`/new` 重置会话；`/status` 查状态。
+> `/sessions` 列出历史会话；`/new` 重置；`/status` 查状态；`/model` 切换模型。
 
 ### Sending Files
 
@@ -196,11 +199,11 @@ The task-api backend supports multiple CLIs and multiple frontends simultaneousl
 > task-api 后端同时支持多种 CLI 和多个前端入口。三个 Telegram bot + Discord bridge 可以同时运行，每个独立会话。
 
 ```
-Discord  ──→ openclaw-cc-bridge ──────────────────────┐
-                                                      │
-Telegram (CC bot)     ──→ bridge.js ──────────────────┼──→ task-api ──→ Claude Code
-Telegram (Codex bot)  ──→ cli-bridge.js (.env.codex) ─┼──→ task-api ──→ Codex CLI
-Telegram (Gemini bot) ──→ cli-bridge.js (.env.gemini) ┘──→ task-api ──→ Gemini CLI
+Discord  ──→ openclaw-cc-bridge ───────────────────────┐
+                                                       │
+Telegram (CC bot)     ──→ bridge.js ───────────────────┼──→ task-api ──→ Claude Code
+Telegram (Codex bot)  ──→ codex-bridge.js (.env.codex) ┼──→ task-api ──→ Codex CLI
+Telegram (Gemini bot) ──→ gemini-bridge.js (.env.gemini)┘──→ task-api ──→ Gemini CLI
 ```
 
 Each bot maintains its own sessions. Run all of them and you get independent windows into Claude Code, Codex, and Gemini — all from your phone.
@@ -245,6 +248,20 @@ Phone ──┤  task-api    ├───┼─ openclaw-cc-bridge
 > All projects are MIT licensed and built by one person with zero programming background — proof that AI tools can genuinely empower non-developers.
 >
 > 所有项目 MIT 开源，由一个零编程基础的人独立搭建——AI 工具确实能赋能非开发者。
+
+## Known Issues & Gotchas
+
+> 踩过的坑，省你踩一遍。
+
+| Issue | Detail |
+|-------|--------|
+| **Gemini resume is `latest` only** | Gemini CLI `--resume` only accepts `latest` or index numbers, NOT UUIDs. Tapping any session in `/sessions` activates "resume latest" mode — it always resumes the most recent session, not the one you tapped. |
+| **Gemini thinking mode** | Gemini CLI forces thinking mode. Models that don't support thinking (e.g. `gemini-2.0-flash`) will crash with exit code 144. Only `gemini-2.5-flash` and above work. |
+| **Codex sandbox** | Codex CLI has a built-in sandbox. Even when resuming a TG-started session in terminal, system-level commands (`launchctl`, `docker`) require explicit permission approval. CC and Gemini CLI don't have this limitation. |
+| **Worker restart after code changes** | After editing `worker.js` or `server.js`, the LaunchAgent keeps running the old code. You must `launchctl unload` + `load` the worker plist to pick up changes. |
+| **Bridge restart clears session state** | Session maps are in-memory. Restarting a bridge loses all active session tracking — Gemini's `resumeLatest` won't be set until the user sends a new message or taps a session button. |
+
+> Gemini CLI 只能 `--resume latest`，不支持按 UUID 恢复；Gemini 2.0 系列不兼容（强制思考模式）；Codex 有沙箱限制；改了 worker 代码要重启 LaunchAgent；重启 bridge 会丢内存会话状态。
 
 ## Author
 
