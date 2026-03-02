@@ -408,9 +408,15 @@ bot.command("sessions", async (ctx) => {
           // 找第一条 user message 作为 topic
           let topic = "";
           if (Array.isArray(data.messages)) {
-            const userMsg = data.messages.find((m) => m.role === "user");
+            const userMsg = data.messages.find((m) => m.type === "user");
             if (userMsg) {
-              topic = (typeof userMsg.content === "string" ? userMsg.content : JSON.stringify(userMsg.content)).slice(0, 80);
+              // content 可能是字符串或 [{text: "..."}] 数组
+              const raw = userMsg.content;
+              if (typeof raw === "string") {
+                topic = raw.slice(0, 80);
+              } else if (Array.isArray(raw) && raw[0]?.text) {
+                topic = raw[0].text.slice(0, 80);
+              }
             }
           }
           sessionList.push({ sessionId, startTime, topic, mtime: f.mtime });
