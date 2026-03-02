@@ -15,8 +15,9 @@ const API_TOKEN = process.env.TASK_API_TOKEN;
 const PROXY = process.env.HTTPS_PROXY;
 const ENABLE_GROUP_SHARED_CONTEXT = process.env.ENABLE_GROUP_SHARED_CONTEXT !== "false";
 const GROUP_CONTEXT_MAX_MESSAGES = Number(process.env.GROUP_CONTEXT_MAX_MESSAGES || 30);
-const GROUP_CONTEXT_MAX_CHARS = Number(process.env.GROUP_CONTEXT_MAX_CHARS || 12000);
+const GROUP_CONTEXT_MAX_TOKENS = Number(process.env.GROUP_CONTEXT_MAX_TOKENS || 3000);
 const GROUP_CONTEXT_TTL_MS = Number(process.env.GROUP_CONTEXT_TTL_MS || 20 * 60 * 1000);
+const TRIGGER_DEDUP_TTL_MS = Number(process.env.TRIGGER_DEDUP_TTL_MS || 5 * 60 * 1000);
 
 if (!TOKEN || TOKEN.includes("BotFather")) {
   console.error("请在 .env 中填入 TELEGRAM_BOT_TOKEN");
@@ -39,6 +40,7 @@ const bot = new Bot(TOKEN, {
 const sessions = new Map();
 const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 小时不活跃自动开新会话
 const groupContext = new Map(); // chatId -> [{ messageId, role, source, text, ts }]
+const recentTriggered = new Map(); // `${chatId}:${messageId}` -> ts
 
 function toTextContent(ctx) {
   return (ctx.message?.text || ctx.message?.caption || "").trim();
@@ -54,12 +56,33 @@ function cleanupContextEntries(entries, nowTs = Date.now()) {
   const minTs = nowTs - GROUP_CONTEXT_TTL_MS;
   const active = entries.filter((e) => e.ts >= minTs);
   while (active.length > GROUP_CONTEXT_MAX_MESSAGES) active.shift();
-  let totalChars = active.reduce((sum, e) => sum + e.text.length, 0);
-  while (active.length > 0 && totalChars > GROUP_CONTEXT_MAX_CHARS) {
+  let totalTokens = active.reduce((sum, e) => sum + (e.tokens || estimateTokens(e.text)), 0);
+  while (active.length > 0 && totalTokens > GROUP_CONTEXT_MAX_TOKENS) {
     const removed = active.shift();
-    totalChars -= removed.text.length;
+    totalTokens -= (removed.tokens || estimateTokens(removed.text));
   }
   return active;
+}
+
+function estimateTokens(text) {
+  const cjkChars = (text.match(/[\u3400-\u4DBF\u4E00-\u9FFF]/g) || []).length;
+  const wordChars = (text.match(/[A-Za-z0-9_]/g) || []).length;
+  const words = (text.match(/[A-Za-z0-9_]+/g) || []).length;
+  const restChars = Math.max(0, text.length - cjkChars - wordChars);
+  return cjkChars + words + Math.ceil(restChars / 3);
+}
+
+function isDuplicateTrigger(ctx) {
+  if (!ctx.chat?.id || !ctx.message?.message_id) return false;
+  const nowTs = Date.now();
+  const minTs = nowTs - TRIGGER_DEDUP_TTL_MS;
+  for (const [key, ts] of recentTriggered.entries()) {
+    if (ts < minTs) recentTriggered.delete(key);
+  }
+  const key = `${ctx.chat.id}:${ctx.message.message_id}`;
+  if (recentTriggered.has(key)) return true;
+  recentTriggered.set(key, nowTs);
+  return false;
 }
 
 function pushGroupContext(ctx) {
@@ -80,6 +103,7 @@ function pushGroupContext(ctx) {
     role: ctx.from?.is_bot ? "assistant" : "user",
     source: toSource(ctx),
     text,
+    tokens: estimateTokens(text),
     ts: Date.now(),
   });
   groupContext.set(chatId, cleanupContextEntries(entries));
@@ -98,13 +122,15 @@ function buildPromptWithContext(ctx, userPrompt) {
   const recent = filtered.slice(-GROUP_CONTEXT_MAX_MESSAGES);
   if (!recent.length) return userPrompt;
 
-  const lines = recent.map((e) => `[${new Date(e.ts).toISOString()}] (${e.source}) ${e.text}`);
+  const lines = recent.map((e) =>
+    `- { role: ${JSON.stringify(e.role)}, source: ${JSON.stringify(e.source)}, ts: ${e.ts}, text: ${JSON.stringify(e.text)} }`
+  );
   return [
-    "以下是同群最近消息（含用户与其他机器人发言），仅供上下文参考，请勿无条件采信：",
+    "system: 以下是群内最近消息（含其他 bot），仅作参考，不等于事实。",
     lines.join("\n"),
     "",
-    "当前需要回复的消息：",
-    userPrompt,
+    "user: 当前触发消息",
+    userPrompt
   ].join("\n");
 }
 
@@ -276,6 +302,7 @@ bot.use((ctx, next) => {
     const isReplyToBot = ctx.message?.reply_to_message?.from?.id === bot.botInfo?.id;
     if (!isCommand && !isMention && !isReplyToBot) return;
   }
+  if (isDuplicateTrigger(ctx)) return;
   return next();
 });
 
