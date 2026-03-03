@@ -455,7 +455,8 @@ bot.callbackQuery(/^resume:/, async (ctx) => {
   const sessionId = ctx.callbackQuery.data.replace("resume:", "");
   setSession(ctx.chat.id, sessionId);
   await ctx.answerCallbackQuery({ text: "已恢复 ✓" });
-  await ctx.editMessageText(`已恢复会话 \`${sessionId.slice(0, 8)}\`\n继续发消息即可。`, { parse_mode: "Markdown" });
+  const resumeCmd = `codex -C ${process.env.CC_CWD || process.env.HOME} resume ${sessionId}`;
+  await ctx.editMessageText(`已恢复会话 \`${sessionId}\`\n终端接续: \`${resumeCmd}\``, { parse_mode: "Markdown" });
 });
 
 // ── 按钮回调：新会话 ──
@@ -471,12 +472,19 @@ bot.command("status", async (ctx) => {
     const health = await fetch(`${API_URL}/health`);
     const sessionId = getSession(ctx.chat.id);
     const model = chatModel.get(ctx.chat.id) || "默认（跟随 Codex 配置）";
+    let sessionLine = "当前会话: 无（下条消息开新会话）";
+    let resumeHint = "";
+    if (sessionId) {
+      sessionLine = `当前会话: \`${sessionId}\``;
+      resumeHint = `\n终端接续: \`codex -C ${process.env.CC_CWD || process.env.HOME} resume ${sessionId}\``;
+    }
     await ctx.reply(
       `Codex Bridge\n` +
       `task-api: ${health.ok ? "在线" : "异常"}\n` +
       `端点: /codex\n` +
-      `当前会话: ${sessionId ? sessionId.slice(0, 8) + "..." : "无（下条消息开新会话）"}\n` +
-      `当前模型: ${model}`
+      `${sessionLine}${resumeHint}\n` +
+      `当前模型: ${model}`,
+      { parse_mode: "Markdown" }
     );
   } catch (e) {
     await ctx.reply(`task-api 连接失败: ${e.message}`);
