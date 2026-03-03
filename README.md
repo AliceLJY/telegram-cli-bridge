@@ -2,9 +2,11 @@
 
 Async bridge between Telegram and AI coding CLIs via task-api. Zero AI middleware, pure pipe.
 
-Supports **Claude Code**, **Codex CLI**, and **Gemini CLI** — each as an independent Telegram bot backed by the same task-api.
+Supports **Codex CLI** and **Gemini CLI** — each as an independent Telegram bot backed by the same task-api.
 
-> 通过 Telegram 远程异步操控 AI 编码 CLI（Claude Code / Codex / Gemini）— 发消息、锁屏走人、完成后收通知。零 AI 中间层，纯管道。
+> **Claude Code bridge has moved to [telegram-cc-sdk](https://github.com/AliceLJY/telegram-cc-sdk)** — direct Agent SDK connection, SQLite sessions, real-time progress. No more task-api middleware for CC.
+
+> 通过 Telegram 远程异步操控 AI 编码 CLI（Codex / Gemini）— 发消息、锁屏走人、完成后收通知。零 AI 中间层，纯管道。CC 桥已迁移至 [telegram-cc-sdk](https://github.com/AliceLJY/telegram-cc-sdk)。
 
 ## Architecture
 
