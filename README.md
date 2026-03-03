@@ -4,20 +4,20 @@ Async bridge between Telegram and AI coding CLIs via task-api. Zero AI middlewar
 
 Supports **Codex CLI** and **Gemini CLI** — each as an independent Telegram bot backed by the same task-api.
 
-> **Claude Code bridge has moved to [telegram-cc-sdk](https://github.com/AliceLJY/telegram-cc-sdk)** — direct Agent SDK connection, SQLite sessions, real-time progress. No more task-api middleware for CC.
+> **Claude Code bridge has moved to [telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)** — direct Agent SDK + Codex SDK connection, SQLite sessions, real-time progress. No more task-api middleware for CC.
 
-> 通过 Telegram 远程异步操控 AI 编码 CLI（Codex / Gemini）— 发消息、锁屏走人、完成后收通知。零 AI 中间层，纯管道。CC 桥已迁移至 [telegram-cc-sdk](https://github.com/AliceLJY/telegram-cc-sdk)。
+> 通过 Telegram 远程异步操控 AI 编码 CLI（Codex / Gemini）— 发消息、锁屏走人、完成后收通知。零 AI 中间层，纯管道。CC/Codex 桥已迁移至 [telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)。
 
 ## Architecture
 
 ```
-                     ┌─ telegram-cc-sdk (separate repo) → Agent SDK → Claude Code
+                     ┌─ telegram-ai-bridge (separate repo) → Agent SDK + Codex SDK → Claude Code / Codex
 Phone (Telegram) ────┼─ codex-bridge.js (.env.codex)     → task-api /codex  → Codex CLI
                      └─ gemini-bridge.js (.env.gemini)    → task-api /gemini → Gemini CLI
                               ↑ poll result & send back to Telegram
 ```
 
-**v3.0**: Dedicated bridges per CLI, CC moved to [telegram-cc-sdk](https://github.com/AliceLJY/telegram-cc-sdk):
+**v3.0**: Dedicated bridges per CLI, CC/Codex moved to [telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge):
 - **Codex**: UUID-based `--resume <sessionId>` — full session restore by ID
 - **Gemini**: `--resume latest` only — no UUID support, always resumes last session
 
@@ -239,7 +239,7 @@ Phone ──┤  task-api    ├───┼─ openclaw-cc-bridge
 | Project | Layer | What it does |
 |---------|-------|-------------|
 | **[openclaw-worker](https://github.com/AliceLJY/openclaw-worker)** | Backend | Security-first task queue + CC Worker. The engine behind all bridges — deploy on cloud or local Docker |
-| **[telegram-cc-sdk](https://github.com/AliceLJY/telegram-cc-sdk)** | Frontend | Telegram → CC via Agent SDK (direct, real-time progress, SQLite sessions) |
+| **[telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)** | Frontend | Telegram → CC/Codex via Agent SDK + Codex SDK (direct, real-time progress, SQLite sessions) |
 | **[telegram-cli-bridge](https://github.com/AliceLJY/telegram-cli-bridge)** | Frontend | *This project.* Telegram → Codex/Gemini via task-api |
 | **[openclaw-cc-bridge](https://github.com/AliceLJY/openclaw-cc-bridge)** | Frontend | Discord as remote control for Claude Code, via OpenClaw Bot plugin |
 | **[openclaw-cc-pipeline](https://github.com/AliceLJY/openclaw-cc-pipeline)** | Orchestration | Multi-turn Claude Code sessions from Discord — complex tasks, step by step |
