@@ -1,12 +1,12 @@
-# Telegram CLI Bridge
+# Telegram CLI Bridge (Legacy)
+
+> **⚠️ ARCHIVED** — This project has been superseded by **[telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)**, which connects directly via Agent SDK / Codex SDK / Gemini Code Assist OAuth — no task-api middleware needed. This repo is kept for reference only.
+>
+> **⚠️ 已归档** — 此项目已被 [telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge) 取代。新版通过 SDK 直连（Claude Agent SDK + Codex SDK + Gemini OAuth），无需 task-api 中间层。本仓库仅供参考。
 
 Async bridge between Telegram and AI coding CLIs via task-api. Zero AI middleware, pure pipe.
 
-Supports **Codex CLI** and **Gemini CLI** — each as an independent Telegram bot backed by the same task-api.
-
-> **Claude Code bridge has moved to [telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)** — direct Agent SDK + Codex SDK connection, SQLite sessions, real-time progress. No more task-api middleware for CC.
-
-> 通过 Telegram 远程异步操控 AI 编码 CLI（Codex / Gemini）— 发消息、锁屏走人、完成后收通知。零 AI 中间层，纯管道。CC/Codex 桥已迁移至 [telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)。
+Three bridges for three CLIs — **Claude Code**, **Codex CLI**, **Gemini CLI** — each as an independent Telegram bot backed by task-api.
 
 ## Architecture
 
