@@ -96,7 +96,7 @@ Detected patterns: 要吗 / 好吗 / 是吗 / 对吗 / 可以吗 / 继续吗 / �
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) runtime (or Node.js)
+- [Bun](https://bun.sh) runtime
 - A running task-api + CC Worker (see [openclaw-worker](https://github.com/AliceLJY/openclaw-worker))
 - Telegram Bot token (from [@BotFather](https://t.me/BotFather))
 

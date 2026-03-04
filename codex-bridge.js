@@ -194,6 +194,10 @@ async function apiPost(path, body) {
     },
     body: JSON.stringify(body),
   });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`API POST ${path} failed: ${res.status} ${text.slice(0, 200)}`);
+  }
   return res.json();
 }
 
@@ -201,6 +205,10 @@ async function apiGet(path) {
   const res = await fetch(`${API_URL}${path}`, {
     headers: { Authorization: `Bearer ${API_TOKEN}` },
   });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`API GET ${path} failed: ${res.status} ${text.slice(0, 200)}`);
+  }
   return res.json();
 }
 
@@ -267,7 +275,7 @@ async function sendLong(ctx, text) {
 }
 
 // ── 文件下载目录 ──
-const FILE_DIR = join(process.env.HOME, "Projects/telegram-cc-bridge/files");
+const FILE_DIR = join(process.env.HOME, "Projects/telegram-cli-bridge/files");
 mkdirSync(FILE_DIR, { recursive: true });
 
 // ── 下载 Telegram 文件到本地 ──
