@@ -1,12 +1,32 @@
-# Telegram CLI Bridge (Legacy)
+# telegram-cli-bridge
 
-> **⚠️ ARCHIVED** — This project has been superseded by **[telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)**, which connects directly via Agent SDK / Codex SDK / Gemini Code Assist OAuth — no task-api middleware needed. This repo is kept for reference only.
->
-> **⚠️ 已归档** — 此项目已被 [telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge) 取代。新版通过 SDK 直连（Claude Agent SDK + Codex SDK + Gemini OAuth），无需 task-api 中间层。本仓库仅供参考。
+Telegram → AI CLI bridge via task-api. All backends get **full CLI capabilities** — file access, command execution, tool use.
 
-Async bridge between Telegram and AI coding CLIs via task-api. Zero AI middleware, pure pipe.
+> Telegram 多后端 AI 桥（task-api 方案）— 所有后端都能获得完整 CLI 能力：读写文件、执行命令、调用工具。
 
 Three bridges for three CLIs — **Claude Code**, **Codex CLI**, **Gemini CLI** — each as an independent Telegram bot backed by task-api.
+
+### Why this bridge?
+
+This is the **task-api approach**: Telegram → task-api → CLI. The CLI runs on your machine with full access to your filesystem and tools.
+
+The companion project **[telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)** takes the **SDK approach**: Telegram → SDK direct. Faster and real-time, but Gemini is limited to chat-only (Code Assist API can't access local files).
+
+> 姐妹项目 [telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge) 走 SDK 直连，延迟更低、有实时进度，但 Gemini 只能聊天（Code Assist API 不能操作本地文件）。本项目通过 task-api 中转，三个后端都能获得完整 CLI 能力。
+
+**Mix and match**: use telegram-ai-bridge for Claude + Codex (SDK direct, real-time progress), and this bridge for Gemini (full CLI via task-api). Or use whichever you prefer.
+
+| | telegram-ai-bridge (SDK) | telegram-cli-bridge (task-api) |
+|---|---|---|
+| Connection | SDK direct | task-api relay |
+| Claude | Agent SDK — full tool use | task-api → Claude Code CLI |
+| Codex | Codex SDK — sandbox execution | task-api → Codex CLI |
+| Gemini | Code Assist API — **chat only** | task-api → Gemini CLI — **full CLI** |
+| Real-time progress | Yes (streaming) | No (polling) |
+| Extra dependency | None | task-api + worker |
+| Best for | Claude/Codex primary | Gemini with full CLI, or unified task-api setup |
+
+> 两个桥可以混搭：Claude+Codex 用 ai-bridge（SDK 直连），Gemini 用 cli-bridge（task-api，完整 CLI 能力）。
 
 ## Architecture
 
@@ -17,7 +37,7 @@ Phone (Telegram) ────┼─ codex-bridge.js (.env.codex)     → task-ap
                               ↑ poll result & send back to Telegram
 ```
 
-**v3.0**: Dedicated bridges per CLI, CC/Codex moved to [telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge):
+Each CLI runs as a separate Telegram bot with its own token and bridge process:
 - **Codex**: UUID-based `--resume <sessionId>` — full session restore by ID
 - **Gemini**: `--resume latest` only — no UUID support, always resumes last session
 
@@ -222,7 +242,7 @@ This bridge is part of a personal AI infrastructure built around Claude Code and
 Phone ──┤  task-api    ├───┼─ openclaw-cli-bridge
         │  (worker)    │   │     Discord → CC commands
         └──────┬───────┘   │
-               │           └─ openclaw-cc-pipeline
+               │           └─ openclaw-cli-pipeline
          Claude Code            Multi-turn orchestration
                │
         ┌──────┴───────┐
@@ -239,10 +259,10 @@ Phone ──┤  task-api    ├───┼─ openclaw-cli-bridge
 | Project | Layer | What it does |
 |---------|-------|-------------|
 | **[openclaw-worker](https://github.com/AliceLJY/openclaw-worker)** | Backend | Security-first task queue + CC Worker. The engine behind all bridges — deploy on cloud or local Docker |
-| **[telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)** | Frontend | Telegram → CC/Codex via Agent SDK + Codex SDK (direct, real-time progress, SQLite sessions) |
-| **[telegram-cli-bridge](https://github.com/AliceLJY/telegram-cli-bridge)** | Frontend | *This project.* Telegram → Codex/Gemini via task-api |
+| **[telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)** | Frontend | Telegram → CC/Codex/Gemini via SDK direct (real-time progress, Gemini chat-only) |
+| **[telegram-cli-bridge](https://github.com/AliceLJY/telegram-cli-bridge)** | Frontend | *This project.* Telegram → CC/Codex/Gemini via task-api (all backends get full CLI) |
 | **[openclaw-cli-bridge](https://github.com/AliceLJY/openclaw-cli-bridge)** | Frontend | Discord → CC/Codex/Gemini via OpenClaw Bot plugin |
-| **[openclaw-cc-pipeline](https://github.com/AliceLJY/openclaw-cc-pipeline)** | Orchestration | Multi-turn Claude Code sessions from Discord — complex tasks, step by step |
+| **[openclaw-cli-pipeline](https://github.com/AliceLJY/openclaw-cli-pipeline)** | Orchestration | Multi-turn Claude Code sessions from Discord — complex tasks, step by step |
 | **[content-alchemy](https://github.com/AliceLJY/content-alchemy)** | Skill | 7-stage content pipeline: Research → Analysis → Writing → Illustration → WeChat Publishing |
 | **[openclaw-content-alchemy](https://github.com/AliceLJY/openclaw-content-alchemy)** | Skill (Bot) | Content Alchemy packaged for OpenClaw bots — 56 art styles, auto-rotation |
 | **[digital-clone-skill](https://github.com/AliceLJY/digital-clone-skill)** | Skill | 6-stage workflow to create AI digital clones from corpus data |
