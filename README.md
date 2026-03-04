@@ -200,7 +200,7 @@ The task-api backend supports multiple CLIs and multiple frontends simultaneousl
 > task-api 后端同时支持多种 CLI 和多个前端入口。三个 Telegram bot + Discord bridge 可以同时运行，每个独立会话。
 
 ```
-Discord  ──→ openclaw-cc-bridge ───────────────────────┐
+Discord  ──→ openclaw-cli-bridge ──────────────────────┐
                                                        │
 Telegram (CC bot)     ──→ bridge.js ───────────────────┼──→ task-api ──→ Claude Code
 Telegram (Codex bot)  ──→ codex-bridge.js (.env.codex) ┼──→ task-api ──→ Codex CLI
@@ -219,7 +219,7 @@ This bridge is part of a personal AI infrastructure built around Claude Code and
                           ┌─ telegram-cli-bridge (you are here)
                           │     Telegram → async tasks
         ┌─────────────┐   │
-Phone ──┤  task-api    ├───┼─ openclaw-cc-bridge
+Phone ──┤  task-api    ├───┼─ openclaw-cli-bridge
         │  (worker)    │   │     Discord → CC commands
         └──────┬───────┘   │
                │           └─ openclaw-cc-pipeline
@@ -241,7 +241,7 @@ Phone ──┤  task-api    ├───┼─ openclaw-cc-bridge
 | **[openclaw-worker](https://github.com/AliceLJY/openclaw-worker)** | Backend | Security-first task queue + CC Worker. The engine behind all bridges — deploy on cloud or local Docker |
 | **[telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)** | Frontend | Telegram → CC/Codex via Agent SDK + Codex SDK (direct, real-time progress, SQLite sessions) |
 | **[telegram-cli-bridge](https://github.com/AliceLJY/telegram-cli-bridge)** | Frontend | *This project.* Telegram → Codex/Gemini via task-api |
-| **[openclaw-cc-bridge](https://github.com/AliceLJY/openclaw-cc-bridge)** | Frontend | Discord as remote control for Claude Code, via OpenClaw Bot plugin |
+| **[openclaw-cli-bridge](https://github.com/AliceLJY/openclaw-cli-bridge)** | Frontend | Discord → CC/Codex/Gemini via OpenClaw Bot plugin |
 | **[openclaw-cc-pipeline](https://github.com/AliceLJY/openclaw-cc-pipeline)** | Orchestration | Multi-turn Claude Code sessions from Discord — complex tasks, step by step |
 | **[content-alchemy](https://github.com/AliceLJY/content-alchemy)** | Skill | 7-stage content pipeline: Research → Analysis → Writing → Illustration → WeChat Publishing |
 | **[openclaw-content-alchemy](https://github.com/AliceLJY/openclaw-content-alchemy)** | Skill (Bot) | Content Alchemy packaged for OpenClaw bots — 56 art styles, auto-rotation |
