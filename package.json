@@ -1,7 +1,7 @@
 {
   "name": "telegram-cli-bridge",
   "version": "3.0.0",
-  "description": "Telegram → Codex / Gemini CLI async bridge via task-api (CC moved to telegram-cc-sdk)",
+  "description": "Telegram → Claude Code / Codex / Gemini CLI bridge via task-api (full CLI capabilities for all backends)",
   "main": "codex-bridge.js",
   "scripts": {
     "start:codex": "bun codex-bridge.js",
