@@ -242,8 +242,8 @@ This bridge is part of a personal AI infrastructure built around Claude Code and
 Phone ──┤  task-api    ├───┼─ openclaw-cli-bridge
         │  (worker)    │   │     Discord → CC commands
         └──────┬───────┘   │
-               │           └─ openclaw-cli-pipeline
-         Claude Code            Multi-turn orchestration
+               │           └─ telegram-ai-bridge
+         Claude Code            SDK direct (real-time)
                │
         ┌──────┴───────┐
         │   Skills     │
@@ -262,10 +262,11 @@ Phone ──┤  task-api    ├───┼─ openclaw-cli-bridge
 | **[telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)** | Frontend | Telegram → CC/Codex/Gemini via SDK direct (real-time progress, Gemini chat-only) |
 | **[telegram-cli-bridge](https://github.com/AliceLJY/telegram-cli-bridge)** | Frontend | *This project.* Telegram → CC/Codex/Gemini via task-api (all backends get full CLI) |
 | **[openclaw-cli-bridge](https://github.com/AliceLJY/openclaw-cli-bridge)** | Frontend | Discord → CC/Codex/Gemini via OpenClaw Bot plugin |
-| **[openclaw-cli-pipeline](https://github.com/AliceLJY/openclaw-cli-pipeline)** | Orchestration | Multi-turn Claude Code sessions from Discord — complex tasks, step by step |
-| **[content-alchemy](https://github.com/AliceLJY/content-alchemy)** | Skill | 7-stage content pipeline: Research → Analysis → Writing → Illustration → WeChat Publishing |
-| **[openclaw-content-alchemy](https://github.com/AliceLJY/openclaw-content-alchemy)** | Skill (Bot) | Content Alchemy packaged for OpenClaw bots — 56 art styles, auto-rotation |
+| **[content-alchemy](https://github.com/AliceLJY/content-alchemy)** | Skill | 5-stage content pipeline: Research → Writing |
+| **[content-publisher](https://github.com/AliceLJY/content-publisher)** | Skill | Image generation, layout formatting, WeChat publishing |
 | **[digital-clone-skill](https://github.com/AliceLJY/digital-clone-skill)** | Skill | 6-stage workflow to create AI digital clones from corpus data |
+| **[local-memory](https://github.com/AliceLJY/local-memory)** | Utility | Local AI conversation search (LanceDB + Jina) |
+| **[cc-shell](https://github.com/AliceLJY/cc-shell)** | UI | Lightweight Claude Code chat UI |
 
 > All projects are MIT licensed and built by one person with zero programming background — proof that AI tools can genuinely empower non-developers.
 >
