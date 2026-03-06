@@ -6,6 +6,13 @@ Telegram → AI CLI bridge via task-api. All backends get **full CLI capabilitie
 
 Three bridges for three CLIs — **Claude Code**, **Codex CLI**, **Gemini CLI** — each as an independent Telegram bot backed by task-api.
 
+## Recommended Setup
+
+Use **[telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)** as the primary path for **Claude Code** and **Codex**.
+Use this repository primarily for **Gemini**, where the task-api + CLI route gives full local file access, command execution, and tool use.
+
+> 推荐用法：**Claude Code / Codex** 优先用 [telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)；本仓库主要给 **Gemini** 用，因为 task-api + CLI 才有完整本地能力。
+
 ### Why this bridge?
 
 This is the **task-api approach**: Telegram → task-api → CLI. The CLI runs on your machine with full access to your filesystem and tools.
