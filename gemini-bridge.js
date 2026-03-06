@@ -56,6 +56,16 @@ const GEMINI_MODELS = [
 const chatModel = new Map(); // chatId → model id
 const DEFAULT_MODEL = "gemini-2.5-flash";
 
+function formatSessionTime(ts) {
+  return new Date(ts).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }).slice(5, 16);
+}
+
+function getTopicSnippet(text, maxLen = 28) {
+  const topic = String(text || "").replace(/\s+/g, " ").trim();
+  if (!topic) return "(空)";
+  return topic.length > maxLen ? `${topic.slice(0, maxLen)}...` : topic;
+}
+
 function toTextContent(ctx) {
   return (ctx.message?.text || ctx.message?.caption || "").trim();
 }
@@ -442,22 +452,28 @@ bot.command("sessions", async (ctx) => {
   }
 
   const isActive = getSession(ctx.chat.id);
+  const currentDisplayId = sessions.get(ctx.chat.id)?.displaySessionId || null;
   const kb = new InlineKeyboard();
-  for (const s of sessionList) {
-    const time = new Date(s.mtime).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }).slice(5, 16);
-    const topic = s.topic || "(空)";
-    kb.text(`${time} ${topic}`, "action:resume-latest").row();
-  }
+  kb.text("续接最近会话", "action:resume-latest").row();
   kb.text("🆕 开新会话", "action:new").row();
   const status = isActive ? "（当前：续接模式）" : "（当前：新会话模式）";
-  await ctx.reply(`Gemini 会话列表${status}：\n点击任意会话 = 启用续接模式（--resume latest）`, { reply_markup: kb });
+  const lines = sessionList.map((s, index) => {
+    const mark = currentDisplayId && currentDisplayId === s.sessionId ? " ✦最近绑定" : "";
+    return `${index + 1}. ${formatSessionTime(s.mtime)} ${getTopicSnippet(s.topic)}${mark}`;
+  });
+  await ctx.reply(
+    `Gemini 会话列表${status}：\n` +
+    `注意：Gemini CLI 这里只能续接最近会话（\`--resume latest\`），下面列表仅供参考。\n\n` +
+    `${lines.join("\n")}`,
+    { reply_markup: kb, parse_mode: "Markdown" }
+  );
 });
 
 // ── 按钮回调：resume-latest（设 active = true）──
 bot.callbackQuery("action:resume-latest", async (ctx) => {
   setSession(ctx.chat.id, null);
   await ctx.answerCallbackQuery({ text: "已启用续接 ✓" });
-  await ctx.editMessageText("已启用续接模式，下条消息将续接最近会话。");
+  await ctx.editMessageText("已启用续接模式，下条消息将续接最近 Gemini 会话（--resume latest）。");
 });
 
 // ── 按钮回调：新会话 ──
@@ -481,6 +497,7 @@ bot.command("status", async (ctx) => {
       `端点: /gemini\n` +
       `模型: ${model}\n` +
       `会话状态: ${isActive ? "active（续接最近会话）" : "none（下条开新会话）"}` +
+      `\n恢复机制: 仅支持 --resume latest` +
       (displayId ? `\n最近 session: ${displayId.slice(0, 8)}...` : "")
     );
   } catch (e) {

@@ -51,7 +51,7 @@ Each CLI runs as a separate Telegram bot with its own token and bridge process:
 | **Documents** | Send PDF, code, text files |
 | **Voice** | Send voice messages |
 | **Session persistence** | Messages in the same conversation share CC context |
-| **Session resume** | `/sessions` shows recent sessions with tap-to-restore buttons |
+| **Session resume** | `/sessions` shows recent sessions; Gemini resumes latest only, Claude/Codex restore by session |
 | **Auto session timeout** | 2 hours idle → auto new session |
 | **Inline keyboard** | Tap buttons for yes/no questions and session switching |
 | **Owner-only** | Silently ignores messages from anyone else |
@@ -62,9 +62,9 @@ Each CLI runs as a separate Telegram bot with its own token and bridge process:
 
 ### Inline Keyboard Buttons
 
-**Session picker** — tap `/sessions`, get a list of buttons. Tap to restore any session:
+**Session picker** — tap `/sessions` to inspect recent sessions. Claude/Codex can restore a chosen session; Gemini only supports enabling `--resume latest`.
 
-> `/sessions` 弹出按钮列表，点一下恢复对应会话，不用打字。
+> `/sessions` 弹出最近会话列表。Claude/Codex 可点选恢复；Gemini 仅支持启用“续接最近会话”模式。
 
 ```
 ┌─────────────────────────────────┐
