@@ -5,7 +5,7 @@
 import { Bot, InlineKeyboard } from "grammy";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, unlinkSync, existsSync } from "fs";
-import { join } from "path";
+import { dirname, join } from "path";
 
 // ── 配置 ──
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -145,7 +145,7 @@ function buildPromptWithContext(ctx, userPrompt) {
 }
 
 // ── 会话历史持久化（本地 JSON 缓存，作为 /codex/recent API 的 fallback）──
-const HISTORY_FILE = join(process.env.HOME, "Projects/telegram-cc-bridge/codex-sessions.json");
+const HISTORY_FILE = join(process.env.HOME, "Projects/telegram-cli-bridge/codex-sessions.json");
 const MAX_HISTORY = 20;
 
 function loadHistory() {
@@ -156,6 +156,7 @@ function loadHistory() {
 }
 
 function saveToHistory(sessionId, firstPrompt) {
+  mkdirSync(dirname(HISTORY_FILE), { recursive: true });
   const history = loadHistory();
   const existing = history.find((h) => h.sessionId === sessionId);
   if (existing) {
