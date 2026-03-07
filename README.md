@@ -1,308 +1,136 @@
 # telegram-cli-bridge
 
-Telegram → AI CLI bridge via task-api. All backends get **full CLI capabilities** — file access, command execution, tool use.
+**English** | [简体中文](README_CN.md)
 
-> Telegram 多后端 AI 桥（task-api 方案）— 所有后端都能获得完整 CLI 能力：读写文件、执行命令、调用工具。
+## Project Positioning
 
-Three bridges for three CLIs — **Claude Code**, **Codex CLI**, **Gemini CLI** — each as an independent Telegram bot backed by task-api.
+This repository is a Telegram frontend for `task-api`, not a standalone backend.
 
-## Recommended Setup
+It depends on a working `task-api` / `openclaw-worker` setup. Without that backend, this repository is close to useless. It does not replace the worker, and it does not provide a unified adapter framework by itself.
 
-Use **[telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)** as the primary path for **Claude Code** and **Codex**.
-Use this repository primarily for **Gemini**, where the task-api + CLI route gives full local file access, command execution, and tool use.
+It is also not one single multi-backend bridge process. The repository contains three separate Telegram bot scripts with similar but different behavior:
 
-> 推荐用法：**Claude Code / Codex** 优先用 [telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)；本仓库主要给 **Gemini** 用，因为 task-api + CLI 才有完整本地能力。
+- `bridge.js` for Claude Code
+- `codex-bridge.js` for Codex CLI
+- `gemini-bridge.js` for Gemini CLI
 
-### Why this bridge?
+This repository is only tested in my own local workflow.
 
-This is the **task-api approach**: Telegram → task-api → CLI. The CLI runs on your machine with full access to your filesystem and tools.
+## What It Does
 
-The companion project **[telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)** takes the **SDK approach**: Telegram → SDK direct. Faster and real-time, but Gemini is limited to chat-only (Code Assist API can't access local files).
+- Accepts Telegram messages, files, photos, and voice input
+- Forwards tasks to local `task-api` endpoints such as `/claude`, `/codex`, and `/gemini`
+- Polls task results and sends responses back to Telegram
+- Maintains per-chat session state in bridge memory
+- Uses one Telegram bot token per CLI entrypoint
 
-> 姐妹项目 [telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge) 走 SDK 直连，延迟更低、有实时进度，但 Gemini 只能聊天（Code Assist API 不能操作本地文件）。本项目通过 task-api 中转，三个后端都能获得完整 CLI 能力。
+## Tested Environment
 
-**Mix and match**: use telegram-ai-bridge for Claude + Codex (SDK direct, real-time progress), and this bridge for Gemini (full CLI via task-api). Or use whichever you prefer.
+- macOS
+- Bun
+- Local `task-api` / `openclaw-worker` already running
+- Separate Telegram bot token per backend
+- Local CLI installs for Claude Code / Codex / Gemini
 
-| | telegram-ai-bridge (SDK) | telegram-cli-bridge (task-api) |
-|---|---|---|
-| Connection | SDK direct | task-api relay |
-| Claude | Agent SDK — full tool use | task-api → Claude Code CLI |
-| Codex | Codex SDK — sandbox execution | task-api → Codex CLI |
-| Gemini | Code Assist API — **chat only** | task-api → Gemini CLI — **full CLI** |
-| Real-time progress | Yes (streaming) | No (polling) |
-| Extra dependency | None | task-api + worker |
-| Best for | Claude/Codex primary | Gemini with full CLI, or unified task-api setup |
+## Compatibility Notes
 
-> 两个桥可以混搭：Claude+Codex 用 ai-bridge（SDK 直连），Gemini 用 cli-bridge（task-api，完整 CLI 能力）。
+- Tested only in my own macOS + task-api workflow
+- Some local paths are hardcoded and should be changed by other users
+- This repository is not the recommended primary path for Claude/Codex in my own setup
+- Gemini session behavior differs from Claude/Codex because Gemini CLI only supports resume latest
+- This is not presented as a general-purpose cross-platform product
 
-## Architecture
+## Architecture Assumptions
 
-```
-                     ┌─ telegram-ai-bridge (separate repo) → Agent SDK + Codex SDK → Claude Code / Codex
-Phone (Telegram) ────┼─ codex-bridge.js (.env.codex)     → task-api /codex  → Codex CLI
-                     └─ gemini-bridge.js (.env.gemini)    → task-api /gemini → Gemini CLI
-                              ↑ poll result & send back to Telegram
-```
+- The bridge processes talk to `TASK_API_URL` with `TASK_API_TOKEN`
+- Default backend URL is `http://localhost:3456`
+- `task-api` and CLI execution are handled elsewhere, typically by `openclaw-worker`
+- Each Telegram bot process is started separately
+- Owner-only usage is assumed, not public multi-user bot usage
 
-Each CLI runs as a separate Telegram bot with its own token and bridge process:
-- **Codex**: UUID-based `--resume <sessionId>` — full session restore by ID
-- **Gemini**: `--resume latest` only — no UUID support, always resumes last session
+## Backend Differences
 
-## Features
+- `bridge.js` is the Claude Code Telegram bot
+- `codex-bridge.js` is the Codex Telegram bot
+- `gemini-bridge.js` is the Gemini Telegram bot
+- Claude and Codex use `sessionId`-style continuation
+- Gemini does not behave the same way: it uses `resumeLatest` instead of UUID session restore
+- Codex keeps a local JSON fallback history in `~/Projects/telegram-cli-bridge/codex-sessions.json`
 
-| Feature | Description |
-|---------|-------------|
-| **Multi-CLI** | Claude Code, Codex CLI, Gemini CLI — each as separate Telegram bot |
-| **Text** | Send any prompt to your chosen CLI |
-| **Photos** | Send images for analysis (multimodal) |
-| **Documents** | Send PDF, code, text files |
-| **Voice** | Send voice messages |
-| **Session persistence** | Messages in the same conversation share CC context |
-| **Session resume** | `/sessions` shows recent sessions; Gemini resumes latest only, Claude/Codex restore by session |
-| **Auto session timeout** | 2 hours idle → auto new session |
-| **Inline keyboard** | Tap buttons for yes/no questions and session switching |
-| **Owner-only** | Silently ignores messages from anyone else |
-| **Auto file cleanup** | Downloaded files deleted after 24 hours |
-| **Proxy support** | For regions where Telegram API is blocked |
-
-> 支持三种 CLI（Claude Code / Codex / Gemini）；文字、图片、文档、语音；会话自动续接 + 按钮式交互；文件 24 小时自动清理；仅主人可用。
-
-### Inline Keyboard Buttons
-
-**Session picker** — tap `/sessions` to inspect recent sessions. Claude/Codex can restore a chosen session; Gemini only supports enabling `--resume latest`.
-
-> `/sessions` 弹出最近会话列表。Claude/Codex 可点选恢复；Gemini 仅支持启用“续接最近会话”模式。
-
-```
-┌─────────────────────────────────┐
-│ 02-24 03:07  帮我看看这个报错...  │
-├─────────────────────────────────┤
-│ 02-23 22:15  写一篇关于AI的...    │
-├─────────────────────────────────┤
-│ 02-23 18:30  检查worker状态...   │
-├─────────────────────────────────┤
-│ 🆕 开新会话                      │
-└─────────────────────────────────┘
-```
-
-**Smart quick replies** — when CC asks a yes/no question, buttons appear automatically:
-
-> CC 问「要吗？」「继续吗？」时自动弹出按钮，点一下回复。
-
-```
-CC: 要把这段代码重构成两个函数吗？
-
-        ┌──────┐  ┌──────┐
-        │  要  │  │ 不要 │
-        └──────┘  └──────┘
-```
-
-Detected patterns: 要吗 / 好吗 / 是吗 / 对吗 / 可以吗 / 继续吗 / 确认吗 + numbered options (1. 2. 3.)
-
-> 自动检测：要吗、好吗、是吗、对吗、可以吗、继续吗、确认吗，以及编号选项。
+These are similar scripts, but they are not one unified backend abstraction layer.
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) runtime
-- A running task-api + CC Worker (see [openclaw-worker](https://github.com/AliceLJY/openclaw-worker))
-- Telegram Bot token (from [@BotFather](https://t.me/BotFather))
+- Bun
+- A working `task-api` / `openclaw-worker` backend
+- `TASK_API_URL` and `TASK_API_TOKEN`
+- Local installs of Claude Code, Codex CLI, and/or Gemini CLI on the backend machine
+- One Telegram bot token per CLI bridge
+- A single owner Telegram account for actual use
 
-> 需要 Bun 运行时、task-api + Worker 后端、Telegram Bot Token。
+## Local Assumptions
+
+- Downloaded files are stored under `~/Projects/telegram-cli-bridge/files`
+- Codex history fallback is stored at `~/Projects/telegram-cli-bridge/codex-sessions.json`
+- `TASK_API_URL` defaults to `http://localhost:3456`
+- Owner-only Telegram usage is assumed
+- One bot token is expected per CLI
 
 ## Setup
 
 ```bash
-git clone https://github.com/AliceLJY/telegram-cli-bridge.git
-cd telegram-cli-bridge
 bun install
-
-cp .env.example .env
-# Edit .env with your bot token and config
-# 编辑 .env 填入你的 Bot Token 和配置
 ```
 
-### Environment Variables
+Prepare separate environment files as needed for each script:
 
-**For `bridge.js` (Claude Code)** — use `.env`:
+- `.env` for `bridge.js`
+- `.env.codex` for `codex-bridge.js`
+- `.env.gemini` for `gemini-bridge.js`
 
-| Variable | Description |
-|----------|-------------|
-| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather |
-| `OWNER_TELEGRAM_ID` | Your Telegram user ID (only you can use the bot) |
-| `TASK_API_URL` | task-api endpoint (default: `http://localhost:3456`) |
-| `TASK_API_TOKEN` | task-api auth token |
-| `HTTPS_PROXY` | Proxy for Telegram API (optional, for blocked regions) |
+Minimum environment variables:
 
-**For `codex-bridge.js`** — use `.env.codex`:
-**For `gemini-bridge.js`** — use `.env.gemini`:
+- `TELEGRAM_BOT_TOKEN`
+- `OWNER_TELEGRAM_ID`
+- `TASK_API_URL`
+- `TASK_API_TOKEN`
 
-| Variable | Description |
-|----------|-------------|
-| `TELEGRAM_BOT_TOKEN` | A **separate** bot token (one per CLI) |
-| `OWNER_TELEGRAM_ID` | Same as above |
-| `TASK_API_URL` | Same task-api endpoint |
-| `TASK_API_TOKEN` | Same task-api auth token |
-| `HTTPS_PROXY` | Same proxy (optional) |
+Optional:
 
-> 每个 CLI 用独立的 Telegram Bot（独立 token），各自的 bridge 文件已硬编码后端路径，无需额外配置。
+- `HTTPS_PROXY`
 
-## Usage
+## Running
+
+Start the specific bridge you want:
 
 ```bash
-# Claude Code (original bridge)
 bun bridge.js
-
-# Codex CLI
-env $(cat .env.codex | xargs) bun codex-bridge.js
-
-# Gemini CLI
-env $(cat .env.gemini | xargs) bun gemini-bridge.js
+bun run start:codex
+bun run start:gemini
 ```
 
-### macOS LaunchAgent (recommended)
+Run them as separate Telegram bots, not as one combined process.
 
-For auto-start on login with crash recovery, create `~/Library/LaunchAgents/com.telegram-cli-bridge.plist`:
+## Known Limits
 
-> macOS 推荐用 LaunchAgent 守护进程，开机自启 + 崩溃自动重启。
-
-```xml
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.telegram-cli-bridge</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/path/to/bun</string>
-        <string>/path/to/telegram-cli-bridge/bridge.js</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-</dict>
-</plist>
-```
-
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `/sessions` | List recent sessions with tap-to-restore buttons |
-| `/new` | Reset current session, next message starts fresh |
-| `/status` | Check task-api health and current session |
-| `/model` | Switch model (Codex: gpt-5.3-codex, o3, etc. / Gemini: 2.5-flash, 2.5-pro, etc.) |
-
-> `/sessions` 列出历史会话；`/new` 重置；`/status` 查状态；`/model` 切换模型。
-
-### Sending Files
-
-Use the Telegram paperclip button to send:
-
-| Type | Support | CC Handling |
-|------|---------|-------------|
-| Photos | ✅ | CC reads images (multimodal) |
-| PDF / text / code | ✅ | CC reads file content |
-| Voice | ✅ | CC processes audio |
-| Video | ❌ | Prompt to send screenshot instead |
-
-Add a caption to tell CC what to do with the file.
-
-> 用回形针按钮发送文件，附上说明文字告诉 CC 要干嘛。
-
-## How It Works
-
-```
-1. You send a message         →  Telegram Bot receives it
-2. Bridge POSTs to task-api   →  /claude or /codex or /gemini endpoint, with sessionId
-3. Worker picks up task       →  Runs the corresponding CLI (--resume if session exists)
-4. Bridge polls for result    →  Long-polling, up to 10 minutes
-5. Result sent back           →  Telegram chat, with smart buttons if applicable
-6. Session remembered         →  Follow-up messages share context
-```
-
-### Multi-CLI + Multi-Frontend Architecture
-
-The task-api backend supports multiple CLIs and multiple frontends simultaneously. Run all three Telegram bots + Discord bridge and you get 4+ independent AI coding windows:
-
-> task-api 后端同时支持多种 CLI 和多个前端入口。三个 Telegram bot + Discord bridge 可以同时运行，每个独立会话。
-
-```
-Discord  ──→ openclaw-cli-bridge ──────────────────────┐
-                                                       │
-Telegram (CC bot)     ──→ bridge.js ───────────────────┼──→ task-api ──→ Claude Code
-Telegram (Codex bot)  ──→ codex-bridge.js (.env.codex) ┼──→ task-api ──→ Codex CLI
-Telegram (Gemini bot) ──→ gemini-bridge.js (.env.gemini)┘──→ task-api ──→ Gemini CLI
-```
-
-Each bot maintains its own sessions. Run all of them and you get independent windows into Claude Code, Codex, and Gemini — all from your phone.
-
-## Ecosystem
-
-This bridge is part of a personal AI infrastructure built around Claude Code and [OpenClaw](https://openclaw.com). Each project handles one layer — from task execution to content publishing. They work independently, but together they form a complete remote-first AI workflow.
-
-> 这个桥是围绕 Claude Code 和 OpenClaw 搭建的个人 AI 基础设施的一部分。每个项目负责一层——从任务执行到内容发布。可以独立使用，组合起来就是完整的远程 AI 工作流。
-
-```
-                          ┌─ telegram-cli-bridge (you are here)
-                          │     Telegram → async tasks
-        ┌─────────────┐   │
-Phone ──┤  task-api    ├───┼─ openclaw-cli-bridge
-        │  (worker)    │   │     Discord → CC commands
-        └──────┬───────┘   │
-               │           └─ telegram-ai-bridge
-         Claude Code            SDK direct (real-time)
-               │
-        ┌──────┴───────┐
-        │   Skills     │
-        ├──────────────┤
-        │ content-     │──→ WeChat articles
-        │ alchemy      │
-        ├──────────────┤
-        │ digital-     │──→ AI personas
-        │ clone-skill  │
-        └──────────────┘
-```
-
-| Project | Layer | What it does |
-|---------|-------|-------------|
-| **[openclaw-worker](https://github.com/AliceLJY/openclaw-worker)** | Backend | Security-first task queue + CC Worker. The engine behind all bridges — deploy on cloud or local Docker |
-| **[telegram-ai-bridge](https://github.com/AliceLJY/telegram-ai-bridge)** | Frontend | Telegram → CC/Codex/Gemini via SDK direct (real-time progress, Gemini chat-only) |
-| **[telegram-cli-bridge](https://github.com/AliceLJY/telegram-cli-bridge)** | Frontend | *This project.* Telegram → CC/Codex/Gemini via task-api (all backends get full CLI) |
-| **[openclaw-cli-bridge](https://github.com/AliceLJY/openclaw-cli-bridge)** | Frontend | Discord → CC/Codex/Gemini via OpenClaw Bot plugin |
-| **[content-alchemy](https://github.com/AliceLJY/content-alchemy)** | Skill | 5-stage content pipeline: Research → Writing |
-| **[content-publisher](https://github.com/AliceLJY/content-publisher)** | Skill | Image generation, layout formatting, WeChat publishing |
-| **[digital-clone-skill](https://github.com/AliceLJY/digital-clone-skill)** | Skill | 6-stage workflow to create AI digital clones from corpus data |
-| **[local-memory](https://github.com/AliceLJY/local-memory)** | Utility | Local AI conversation search (LanceDB + Jina) |
-| **[cc-shell](https://github.com/AliceLJY/cc-shell)** | UI | Lightweight Claude Code chat UI |
-
-> All projects are MIT licensed and built by one person with zero programming background — proof that AI tools can genuinely empower non-developers.
->
-> 所有项目 MIT 开源，由一个零编程基础的人独立搭建——AI 工具确实能赋能非开发者。
-
-## Known Issues & Gotchas
-
-> 踩过的坑，省你踩一遍。
-
-| Issue | Detail |
-|-------|--------|
-| **Gemini resume is `latest` only** | Gemini CLI `--resume` only accepts `latest` or index numbers, NOT UUIDs. Tapping any session in `/sessions` activates "resume latest" mode — it always resumes the most recent session, not the one you tapped. |
-| **Gemini thinking mode** | Gemini CLI forces thinking mode. Models that don't support thinking (e.g. `gemini-2.0-flash`) will crash with exit code 144. Only `gemini-2.5-flash` and above work. |
-| **Codex sandbox** | Codex CLI has a built-in sandbox. Even when resuming a TG-started session in terminal, system-level commands (`launchctl`, `docker`) require explicit permission approval. CC and Gemini CLI don't have this limitation. |
-| **Worker restart after code changes** | After editing `worker.js` or `server.js`, the LaunchAgent keeps running the old code. You must `launchctl unload` + `load` the worker plist to pick up changes. |
-| **Bridge restart clears session state** | Session maps are in-memory. Restarting a bridge loses all active session tracking — Gemini's `resumeLatest` won't be set until the user sends a new message or taps a session button. |
-
-> Gemini CLI 只能 `--resume latest`，不支持按 UUID 恢复；Gemini 2.0 系列不兼容（强制思考模式）；Codex 有沙箱限制；改了 worker 代码要重启 LaunchAgent；重启 bridge 会丢内存会话状态。
+- This is a task-api frontend, not a standalone backend
+- Without `openclaw-worker` / task-api, the repository is almost unusable
+- Session maps are stored in memory and are lost on bridge restart
+- Hardcoded local paths may not match other machines
+- Gemini session restore is not equivalent to Claude/Codex
+- The three scripts are manually split and not a unified adapter architecture
+- Results and reliability depend on worker-side task execution and polling success
 
 ## Author
 
-**小试AI** — WeChat Public Account「我的AI小木屋」
+Built by **小试AI** ([@AliceLJY](https://github.com/AliceLJY))
 
-Not a developer. Medical background, works in cultural administration, self-taught AI the hard way. Writes about AI hands-on experience, real-world pitfalls, and the human side of technology.
+## WeChat Public Account
 
-> 医学出身，文化口工作，AI 野路子。公众号记录 AI 实操、踩坑、人文思考。
+WeChat public account: **我的AI小木屋**
 
 <img src="./assets/wechat_qr.jpg" width="200" alt="WeChat QR Code">
 
 ## License
 
-[MIT](LICENSE)
+MIT
