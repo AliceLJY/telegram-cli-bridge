@@ -1,6 +1,18 @@
 # telegram-cli-bridge
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Bun](https://img.shields.io/badge/runtime-Bun-black.svg)](https://bun.sh)
+[![Telegram](https://img.shields.io/badge/interface-Telegram-26A5E4.svg)](https://telegram.org/)
+
 **English** | [简体中文](README_CN.md)
+
+Turn Telegram into the remote control for your local AI CLI through `task-api`.
+
+`telegram-cli-bridge` is the task-api path in this ecosystem: three Telegram bot entrypoints that forward work to a local worker, so Claude Code, Codex CLI, and Gemini CLI can keep their full CLI execution model on the machine that actually owns the files and credentials.
+
+Core product rule:
+
+> One bot = one CLI = one task-api route = one clear operator mental model.
 
 ## Project Positioning
 
@@ -15,6 +27,27 @@ It is also not one single multi-backend bridge process. The repository contains 
 - `gemini-bridge.js` for Gemini CLI
 
 This repository is only tested in my own local workflow.
+
+## Why This Exists
+
+`telegram-ai-bridge` is the cleaner SDK-first path.
+
+This repository exists for the other case: when you want Telegram on the front, but you still want the real backend to be a worker that can run the local CLI directly.
+
+Choose this repo when:
+
+- you already have `task-api` / `openclaw-worker` running
+- you want Telegram to drive full local CLI execution instead of an SDK wrapper
+- you prefer keeping backend execution, file access, and credentials behind a worker boundary
+- you are okay running separate bot scripts for separate CLIs
+
+## What You Get
+
+- Telegram bots for Claude Code, Codex CLI, and Gemini CLI
+- file / photo / voice forwarding to task-api routes
+- polling + callback style result delivery
+- owner-only session continuation per chat
+- a simpler bridge process that delegates execution to `openclaw-worker`
 
 ## What It Does
 
