@@ -1,6 +1,18 @@
 # telegram-cli-bridge
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Bun](https://img.shields.io/badge/runtime-Bun-black.svg)](https://bun.sh)
+[![Telegram](https://img.shields.io/badge/interface-Telegram-26A5E4.svg)](https://telegram.org/)
+
 [English](README.md) | **简体中文**
+
+把 Telegram 变成通过 `task-api` 控制本地 AI CLI 的遥控器。
+
+`telegram-cli-bridge` 代表的是这套体系里的 `task-api` 路线：前面是 Telegram bot，后面是本地 worker，真正的 Claude Code、Codex CLI、Gemini CLI 仍然在拥有文件和凭据的那台机器上执行。
+
+这个项目的核心产品规则是：
+
+> 一个 bot = 一个 CLI = 一条 task-api 路由 = 一套清晰操作心智模型
 
 ## 项目定位
 
@@ -15,6 +27,27 @@
 - `gemini-bridge.js` 对应 Gemini CLI
 
 这个仓库目前只在我自己的本地工作流里实测过。
+
+## 这个项目为什么存在
+
+`telegram-ai-bridge` 是更干净的 SDK-first 路线。
+
+这个仓库存在的意义，是另一类场景：你希望 Telegram 做前端，但真正执行任务的还是本地 worker，CLI 继续以完整 CLI 形态跑在本机。
+
+适合用这个仓库的情况：
+
+- 你已经有可用的 `task-api` / `openclaw-worker`
+- 你希望 Telegram 驱动的是完整本地 CLI 执行，而不是 SDK 壳
+- 你希望文件访问、凭据和执行权限继续被 worker 边界包住
+- 你接受不同 CLI 继续拆成不同 bot 脚本
+
+## 你能得到什么
+
+- 面向 Claude Code、Codex CLI、Gemini CLI 的 Telegram bot 入口
+- 文件、图片、语音输入都能转发到 task-api
+- 轮询 + callback 结合的结果回传方式
+- owner-only 的 per-chat 会话续接
+- bridge 进程保持很薄，真正执行交给 `openclaw-worker`
 
 ## 这个项目做什么
 
