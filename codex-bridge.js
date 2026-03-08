@@ -145,7 +145,8 @@ function buildPromptWithContext(ctx, userPrompt) {
 }
 
 // ── 会话历史持久化（本地 JSON 缓存，作为 /codex/recent API 的 fallback）──
-const HISTORY_FILE = join(process.env.HOME, "Projects/telegram-cli-bridge/codex-sessions.json");
+const DATA_DIR = process.env.CODEX_BRIDGE_DATA_DIR || dirname(new URL(import.meta.url).pathname);
+const HISTORY_FILE = process.env.CODEX_BRIDGE_HISTORY_FILE || join(DATA_DIR, "codex-sessions.json");
 const MAX_HISTORY = 20;
 
 function loadHistory() {
@@ -276,7 +277,7 @@ async function sendLong(ctx, text) {
 }
 
 // ── 文件下载目录 ──
-const FILE_DIR = join(process.env.HOME, "Projects/telegram-cli-bridge/files");
+const FILE_DIR = process.env.CODEX_BRIDGE_FILE_DIR || join(DATA_DIR, "files");
 mkdirSync(FILE_DIR, { recursive: true });
 
 // ── 下载 Telegram 文件到本地 ──

@@ -4,8 +4,11 @@
   "description": "Telegram → Claude Code / Codex / Gemini CLI bridge via task-api (full CLI capabilities for all backends)",
   "main": "codex-bridge.js",
   "scripts": {
+    "start:claude": "bun bridge.js",
     "start:codex": "bun codex-bridge.js",
-    "start:gemini": "bun gemini-bridge.js"
+    "start:gemini": "bun gemini-bridge.js",
+    "test": "bun test",
+    "doctor": "bash scripts/doctor.sh"
   },
   "dependencies": {
     "grammy": "^1.40.0",
