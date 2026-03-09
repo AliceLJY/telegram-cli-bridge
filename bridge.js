@@ -36,9 +36,8 @@ const bot = new Bot(TOKEN, {
   },
 });
 
-// ── 会话映射（chatId → { sessionId, lastActive }）──
+// ── 会话映射（chatId → { sessionId, lastActive }）── 会话永久保持（sticky）
 const sessions = new Map();
-const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 小时不活跃自动开新会话
 const groupContext = new Map(); // chatId -> [{ messageId, role, source, text, ts }]
 const recentTriggered = new Map(); // `${chatId}:${messageId}` -> ts
 
@@ -137,10 +136,6 @@ function buildPromptWithContext(ctx, userPrompt) {
 function getSession(chatId) {
   const s = sessions.get(chatId);
   if (!s) return null;
-  if (Date.now() - s.lastActive > SESSION_TIMEOUT) {
-    sessions.delete(chatId);
-    return null; // 过期，开新会话
-  }
   return s.sessionId;
 }
 
