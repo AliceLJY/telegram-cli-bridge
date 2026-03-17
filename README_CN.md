@@ -1,169 +1,146 @@
+<div align="center">
+
 # telegram-cli-bridge
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Bun](https://img.shields.io/badge/runtime-Bun-black.svg)](https://bun.sh)
-[![Telegram](https://img.shields.io/badge/interface-Telegram-26A5E4.svg)](https://telegram.org/)
+**task-api CLI 执行的 Telegram 前端**
+
+*Telegram 消息转发到本地 task-api，在真实 CLI 上执行，结果推回来。*
+
+一个薄桥接层，通过 `task-api` / `openclaw-worker` 驱动 Claude Code、Codex CLI 和 Gemini CLI——完整 CLI 执行留在拥有文件和凭据的机器上。
+
+[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Bun](https://img.shields.io/badge/Runtime-Bun-f9f1e1?logo=bun)](https://bun.sh)
+[![Telegram](https://img.shields.io/badge/Interface-Telegram-26A5E4?logo=telegram)](https://telegram.org/)
 
 [English](README.md) | **简体中文**
 
-把 Telegram 变成通过 `task-api` 控制本地 AI CLI 的遥控器。
+</div>
 
-`telegram-cli-bridge` 代表的是这套体系里的 `task-api` 路线：前面是 Telegram bot，后面是本地 worker，真正的 Claude Code、Codex CLI、Gemini CLI 仍然在拥有文件和凭据的那台机器上执行。
+---
 
-这个项目的核心产品规则是：
+## 这是什么
 
-> 一个 bot = 一个 CLI = 一条 task-api 路由 = 一套清晰操作心智模型
+`task-api` 的 Telegram 前端。不是独立后端。
 
-## 项目定位
+它强依赖一个已经可用的 `task-api` / `openclaw-worker`。没有后端，这个仓库几乎没有实际用途。bridge 接收 Telegram 消息，把任务转发到 task-api 端点，轮询结果，再推回 Telegram。
 
-这个仓库是 `task-api` 的 Telegram 前端，不是独立后端。
+> **核心规则：** 一个 bot = 一个 CLI = 一条 task-api 路由。
 
-它强依赖一个已经可用的 `task-api` / `openclaw-worker`。没有后端，这个仓库几乎没有实际用途。它不能替代 worker，也不是一个自带统一适配层的完整系统。
+### telegram-ai-bridge vs telegram-cli-bridge
 
-它也不是“一个统一多后端桥进程”。仓库里其实是三份相似但分开的 Telegram bot 脚本：
+| | telegram-ai-bridge | telegram-cli-bridge（本仓库） |
+|---|---|---|
+| 执行模型 | SDK-first（进程内 adapter） | CLI-first（通过 task-api worker） |
+| 后端依赖 | 无——自包含 | 需要 `task-api` / `openclaw-worker` |
+| 架构 | 统一 bridge 进程 | 三个独立 bot 脚本 |
+| 适合场景 | 直接 SDK 集成 | worker 背后的完整本地 CLI 执行 |
 
-- `bridge.js` 对应 Claude Code
-- `codex-bridge.js` 对应 Codex CLI
-- `gemini-bridge.js` 对应 Gemini CLI
+如果你已经跑着 task-api，并希望 Telegram 驱动完整本地 CLI 执行（而非 SDK 壳），选这个仓库。
 
-这个仓库目前只在我自己的本地工作流里实测过。
-
-## 这个项目为什么存在
-
-`telegram-ai-bridge` 是更干净的 SDK-first 路线。
-
-这个仓库存在的意义，是另一类场景：你希望 Telegram 做前端，但真正执行任务的还是本地 worker，CLI 继续以完整 CLI 形态跑在本机。
-
-适合用这个仓库的情况：
-
-- 你已经有可用的 `task-api` / `openclaw-worker`
-- 你希望 Telegram 驱动的是完整本地 CLI 执行，而不是 SDK 壳
-- 你希望文件访问、凭据和执行权限继续被 worker 边界包住
-- 你接受不同 CLI 继续拆成不同 bot 脚本
+---
 
 ## 你能得到什么
 
-- 面向 Claude Code、Codex CLI、Gemini CLI 的 Telegram bot 入口
-- 文件、图片、语音输入都能转发到 task-api
-- 轮询 + callback 结合的结果回传方式
-- owner-only 的 per-chat 会话续接
-- bridge 进程保持很薄，真正执行交给 `openclaw-worker`
+| 功能 | 说明 |
+|------|------|
+| **三个 CLI bot** | `bridge.js`（Claude）、`codex-bridge.js`（Codex）、`gemini-bridge.js`（Gemini） |
+| **媒体转发** | 文件、图片、语音输入转发到 task-api |
+| **结果回传** | 轮询 + callback 结合 |
+| **会话续接** | 按 chat、owner-only、内存存储 |
+| **薄桥接** | 所有执行委托给 `openclaw-worker` |
 
-## 这个项目做什么
+---
 
-- 接收 Telegram 消息、文件、图片和语音
-- 把任务转发到本地 `task-api` 的 `/claude`、`/codex`、`/gemini` 等接口
-- 轮询任务结果，再把结果发回 Telegram
-- 在 bridge 进程内存中维护按 chat 的会话状态
-- 每个 CLI 入口各用一个独立的 Telegram bot token
-
-## 实测环境
-
-- macOS
-- Bun
-- 本地已经运行好的 `task-api` / `openclaw-worker`
-- 每个后端一个单独的 Telegram bot token
-- 本地已安装 Claude Code / Codex / Gemini CLI
-
-## 兼容性说明
-
-- 目前只在我自己的 macOS + task-api 工作流里实测
-- 部分本地路径是硬编码的，其他人使用时通常需要自己改
-- 这个仓库在我自己的体系里并不是 Claude/Codex 的首选主路径
-- Gemini 的会话恢复行为和 Claude/Codex 不同，因为 Gemini CLI 只支持 `resume latest`
-- 这个仓库不应被表述成通用跨平台产品
-
-## 架构前提
-
-- bridge 进程通过 `TASK_API_URL` 和 `TASK_API_TOKEN` 调用后端
-- 默认后端地址是 `http://localhost:3456`
-- `task-api` 和 CLI 执行都在别处完成，通常由 `openclaw-worker` 负责
-- 每个 Telegram bot 都需要单独启动一个脚本进程
-- 默认假设是 owner-only 自用，而不是公共多用户 bot
-
-## 后端差异
-
-- `bridge.js` 是 Claude Code 的 Telegram bot
-- `codex-bridge.js` 是 Codex 的 Telegram bot
-- `gemini-bridge.js` 是 Gemini 的 Telegram bot
-- Claude 和 Codex 走的是 `sessionId` 式续接
-- Gemini 不等价，它走的是 `resumeLatest`，不是 UUID 会话恢复
-- Codex 还会把本地 fallback 历史写到 `~/Projects/telegram-cli-bridge/codex-sessions.json`
-
-这些脚本很像，但它们不是一个统一抽象出来的多后端适配器。
-
-## 前置条件
-
-- Bun
-- 可用的 `task-api` / `openclaw-worker` 后端
-- `TASK_API_URL` 和 `TASK_API_TOKEN`
-- 在后端机器本地安装 Claude Code、Codex CLI 和/或 Gemini CLI
-- 每个 CLI bridge 各自一个 Telegram bot token
-- 一个实际使用的 owner Telegram 账号
-
-## 本地假设
-
-- 下载文件目录是 `~/Projects/telegram-cli-bridge/files`
-- Codex 历史 fallback 文件是 `~/Projects/telegram-cli-bridge/codex-sessions.json`
-- `TASK_API_URL` 默认是 `http://localhost:3456`
-- 默认是 owner-only Telegram 使用方式
-- 每个 CLI 预期单独使用一个 bot token
-
-## 安装
+## 快速开始
 
 ```bash
+git clone https://github.com/AliceLJY/telegram-cli-bridge.git
+cd telegram-cli-bridge
 bun install
 ```
 
-按不同脚本准备各自环境文件：
+按不同脚本准备环境文件：
 
-- `.env` 给 `bridge.js`
-- `.env.codex` 给 `codex-bridge.js`
-- `.env.gemini` 给 `gemini-bridge.js`
+| 文件 | Bot |
+|------|-----|
+| `.env` | `bridge.js`（Claude） |
+| `.env.codex` | `codex-bridge.js`（Codex） |
+| `.env.gemini` | `gemini-bridge.js`（Gemini） |
 
-最少需要这些环境变量：
+必需环境变量：
 
-- `TELEGRAM_BOT_TOKEN`
-- `OWNER_TELEGRAM_ID`
-- `TASK_API_URL`
-- `TASK_API_TOKEN`
-
-可选：
-
-- `HTTPS_PROXY`
-
-## 运行
-
-按你要用的桥分别启动：
-
-```bash
-bun bridge.js
-bun run start:codex
-bun run start:gemini
+```dotenv
+TELEGRAM_BOT_TOKEN=...
+OWNER_TELEGRAM_ID=...
+TASK_API_URL=http://localhost:3456
+TASK_API_TOKEN=...
+# 可选：HTTPS_PROXY=...
 ```
 
-它们应该作为三个分开的 Telegram bot 进程运行，而不是一个合并进程。
+### 运行
 
-## 已知限制
+```bash
+bun bridge.js           # Claude
+bun run start:codex     # Codex
+bun run start:gemini    # Gemini
+```
+
+应作为三个独立进程运行，不要合并成一个。
+
+---
+
+<details>
+<summary><strong>后端差异</strong></summary>
+
+- **Claude**（`bridge.js`）— 通过 `/claude` 端点做 `sessionId` 式续接
+- **Codex**（`codex-bridge.js`）— `sessionId` 式，带本地 fallback 历史 `codex-sessions.json`
+- **Gemini**（`gemini-bridge.js`）— 使用 `resumeLatest` 而非 UUID 会话恢复（Gemini CLI 限制）
+
+这些脚本很像，但不是统一抽象出来的 adapter。
+
+</details>
+
+<details>
+<summary><strong>前置条件与环境</strong></summary>
+
+**必需：**
+- Bun
+- 可用的 `task-api` / `openclaw-worker` 后端
+- 在后端机器上安装 Claude Code、Codex CLI 和/或 Gemini CLI
+- 每个 CLI bridge 各一个 Telegram bot token
+- 一个 owner Telegram 账号
+
+**本地路径假设：**
+- 下载文件目录：`~/Projects/telegram-cli-bridge/files`
+- Codex 历史 fallback：`~/Projects/telegram-cli-bridge/codex-sessions.json`
+- `TASK_API_URL` 默认 `http://localhost:3456`
+
+**兼容性：**
+- 仅在作者本人的 macOS + task-api 工作流中实测
+- 部分本地路径硬编码，其他用户可能需要调整
+- 在我自己的体系里，Claude/Codex 的主推荐路径是 `telegram-ai-bridge`（SDK-first）
+
+</details>
+
+<details>
+<summary><strong>已知限制</strong></summary>
 
 - 这是 task-api 前端，不是独立后端
-- 没有 `openclaw-worker` / task-api，这个仓库几乎不能用
-- 会话映射保存在内存里，bridge 重启后会丢
-- 硬编码本地路径未必适用于别的机器
-- Gemini 的会话恢复和 Claude/Codex 不等价
+- 会话映射存在内存里，bridge 重启后丢失
+- Gemini 会话恢复和 Claude/Codex 不等价
 - 三个脚本是手工拆开的，不是统一 adapter 架构
-- 结果可靠性仍取决于 worker 侧任务执行和轮询是否正常
+- 结果可靠性取决于 worker 侧任务执行
+
+</details>
+
+---
 
 ## 作者
 
-作者：**小试AI**（[@AliceLJY](https://github.com/AliceLJY)）
+作者是 **小试AI**（[@AliceLJY](https://github.com/AliceLJY)），公众号为 **我的AI小木屋**。
 
-## 公众号二维码
+<img src="./assets/wechat_qr.jpg" width="200" alt="微信公众号二维码">
 
-公众号：**我的AI小木屋**
-
-<img src="./assets/wechat_qr.jpg" width="200" alt="公众号二维码">
-
-## License
+## 许可证
 
 MIT
