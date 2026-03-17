@@ -1,166 +1,143 @@
+<div align="center">
+
 # telegram-cli-bridge
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Bun](https://img.shields.io/badge/runtime-Bun-black.svg)](https://bun.sh)
-[![Telegram](https://img.shields.io/badge/interface-Telegram-26A5E4.svg)](https://telegram.org/)
+**Telegram Frontend for task-api CLI Execution**
+
+*Forward Telegram messages to your local task-api, execute on the real CLI, send results back.*
+
+A thin Telegram bridge that drives Claude Code, Codex CLI, and Gemini CLI through `task-api` / `openclaw-worker` — keeping full CLI execution on the machine that owns the files and credentials.
+
+[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Bun](https://img.shields.io/badge/Runtime-Bun-f9f1e1?logo=bun)](https://bun.sh)
+[![Telegram](https://img.shields.io/badge/Interface-Telegram-26A5E4?logo=telegram)](https://telegram.org/)
 
 **English** | [简体中文](README_CN.md)
 
-Turn Telegram into the remote control for your local AI CLI through `task-api`.
+</div>
 
-`telegram-cli-bridge` is the task-api path in this ecosystem: three Telegram bot entrypoints that forward work to a local worker, so Claude Code, Codex CLI, and Gemini CLI can keep their full CLI execution model on the machine that actually owns the files and credentials.
+---
 
-Core product rule:
+## What This Is
 
-> One bot = one CLI = one task-api route = one clear operator mental model.
+A Telegram frontend for `task-api`. Not a standalone backend.
 
-## Project Positioning
+It depends on a working `task-api` / `openclaw-worker` setup. Without that, this repository is close to useless. The bridge accepts Telegram messages, forwards tasks to task-api endpoints, polls for results, and sends responses back.
 
-This repository is a Telegram frontend for `task-api`, not a standalone backend.
+> **Core rule:** One bot = one CLI = one task-api route.
 
-It depends on a working `task-api` / `openclaw-worker` setup. Without that backend, this repository is close to useless. It does not replace the worker, and it does not provide a unified adapter framework by itself.
+### telegram-ai-bridge vs telegram-cli-bridge
 
-It is also not one single multi-backend bridge process. The repository contains three separate Telegram bot scripts with similar but different behavior:
+| | telegram-ai-bridge | telegram-cli-bridge (this) |
+|---|---|---|
+| Execution model | SDK-first (in-process adapter) | CLI-first (via task-api worker) |
+| Backend dependency | None — self-contained | Requires `task-api` / `openclaw-worker` |
+| Architecture | Unified bridge process | Three separate bot scripts |
+| Best for | Direct SDK integration | Full local CLI execution behind a worker |
 
-- `bridge.js` for Claude Code
-- `codex-bridge.js` for Codex CLI
-- `gemini-bridge.js` for Gemini CLI
+Choose this repo when you already have `task-api` running and want Telegram to drive full local CLI execution instead of SDK wrappers.
 
-This repository is only tested in my own local workflow.
-
-## Why This Exists
-
-`telegram-ai-bridge` is the cleaner SDK-first path.
-
-This repository exists for the other case: when you want Telegram on the front, but you still want the real backend to be a worker that can run the local CLI directly.
-
-Choose this repo when:
-
-- you already have `task-api` / `openclaw-worker` running
-- you want Telegram to drive full local CLI execution instead of an SDK wrapper
-- you prefer keeping backend execution, file access, and credentials behind a worker boundary
-- you are okay running separate bot scripts for separate CLIs
+---
 
 ## What You Get
 
-- Telegram bots for Claude Code, Codex CLI, and Gemini CLI
-- file / photo / voice forwarding to task-api routes
-- polling + callback style result delivery
-- owner-only session continuation per chat
-- a simpler bridge process that delegates execution to `openclaw-worker`
+| Feature | Description |
+|---------|-------------|
+| **Three CLI bots** | `bridge.js` (Claude), `codex-bridge.js` (Codex), `gemini-bridge.js` (Gemini) |
+| **Media forwarding** | Files, photos, and voice input forwarded to task-api |
+| **Result delivery** | Polling + callback style |
+| **Session continuity** | Per-chat, owner-only, in-memory |
+| **Thin bridge** | All execution delegated to `openclaw-worker` |
 
-## What It Does
+---
 
-- Accepts Telegram messages, files, photos, and voice input
-- Forwards tasks to local `task-api` endpoints such as `/claude`, `/codex`, and `/gemini`
-- Polls task results and sends responses back to Telegram
-- Maintains per-chat session state in bridge memory
-- Uses one Telegram bot token per CLI entrypoint
-
-## Tested Environment
-
-- macOS
-- Bun
-- Local `task-api` / `openclaw-worker` already running
-- Separate Telegram bot token per backend
-- Local CLI installs for Claude Code / Codex / Gemini
-
-## Compatibility Notes
-
-- Tested only in my own macOS + task-api workflow
-- Some local paths are hardcoded and should be changed by other users
-- This repository is not the recommended primary path for Claude/Codex in my own setup
-- Gemini session behavior differs from Claude/Codex because Gemini CLI only supports resume latest
-- This is not presented as a general-purpose cross-platform product
-
-## Architecture Assumptions
-
-- The bridge processes talk to `TASK_API_URL` with `TASK_API_TOKEN`
-- Default backend URL is `http://localhost:3456`
-- `task-api` and CLI execution are handled elsewhere, typically by `openclaw-worker`
-- Each Telegram bot process is started separately
-- Owner-only usage is assumed, not public multi-user bot usage
-
-## Backend Differences
-
-- `bridge.js` is the Claude Code Telegram bot
-- `codex-bridge.js` is the Codex Telegram bot
-- `gemini-bridge.js` is the Gemini Telegram bot
-- Claude and Codex use `sessionId`-style continuation
-- Gemini does not behave the same way: it uses `resumeLatest` instead of UUID session restore
-- Codex keeps a local JSON fallback history in `~/Projects/telegram-cli-bridge/codex-sessions.json`
-
-These are similar scripts, but they are not one unified backend abstraction layer.
-
-## Prerequisites
-
-- Bun
-- A working `task-api` / `openclaw-worker` backend
-- `TASK_API_URL` and `TASK_API_TOKEN`
-- Local installs of Claude Code, Codex CLI, and/or Gemini CLI on the backend machine
-- One Telegram bot token per CLI bridge
-- A single owner Telegram account for actual use
-
-## Local Assumptions
-
-- Downloaded files are stored under `~/Projects/telegram-cli-bridge/files`
-- Codex history fallback is stored at `~/Projects/telegram-cli-bridge/codex-sessions.json`
-- `TASK_API_URL` defaults to `http://localhost:3456`
-- Owner-only Telegram usage is assumed
-- One bot token is expected per CLI
-
-## Setup
+## Quick Start
 
 ```bash
+git clone https://github.com/AliceLJY/telegram-cli-bridge.git
+cd telegram-cli-bridge
 bun install
 ```
 
-Prepare separate environment files as needed for each script:
+Prepare environment files:
 
-- `.env` for `bridge.js`
-- `.env.codex` for `codex-bridge.js`
-- `.env.gemini` for `gemini-bridge.js`
+| File | Bot |
+|------|-----|
+| `.env` | `bridge.js` (Claude) |
+| `.env.codex` | `codex-bridge.js` (Codex) |
+| `.env.gemini` | `gemini-bridge.js` (Gemini) |
 
-Minimum environment variables:
+Required variables:
 
-- `TELEGRAM_BOT_TOKEN`
-- `OWNER_TELEGRAM_ID`
-- `TASK_API_URL`
-- `TASK_API_TOKEN`
-
-Optional:
-
-- `HTTPS_PROXY`
-
-## Running
-
-Start the specific bridge you want:
-
-```bash
-bun bridge.js
-bun run start:codex
-bun run start:gemini
+```dotenv
+TELEGRAM_BOT_TOKEN=...
+OWNER_TELEGRAM_ID=...
+TASK_API_URL=http://localhost:3456
+TASK_API_TOKEN=...
+# Optional: HTTPS_PROXY=...
 ```
 
-Run them as separate Telegram bots, not as one combined process.
+### Run
 
-## Known Limits
+```bash
+bun bridge.js           # Claude
+bun run start:codex     # Codex
+bun run start:gemini    # Gemini
+```
+
+Run them as separate processes, not one combined bridge.
+
+---
+
+<details>
+<summary><strong>Backend Differences</strong></summary>
+
+- **Claude** (`bridge.js`) — `sessionId`-style continuation via `/claude` endpoint
+- **Codex** (`codex-bridge.js`) — `sessionId`-style, with local fallback history at `codex-sessions.json`
+- **Gemini** (`gemini-bridge.js`) — uses `resumeLatest` instead of UUID session restore (Gemini CLI limitation)
+
+These are similar scripts, not a unified adapter abstraction.
+
+</details>
+
+<details>
+<summary><strong>Prerequisites & Environment</strong></summary>
+
+**Required:**
+- Bun
+- A working `task-api` / `openclaw-worker` backend
+- Local installs of Claude Code, Codex CLI, and/or Gemini CLI on the backend machine
+- One Telegram bot token per CLI bridge
+- Owner Telegram account
+
+**Local path assumptions:**
+- Downloaded files: `~/Projects/telegram-cli-bridge/files`
+- Codex history fallback: `~/Projects/telegram-cli-bridge/codex-sessions.json`
+- `TASK_API_URL` defaults to `http://localhost:3456`
+
+**Compatibility:**
+- Tested only on the author's macOS + task-api workflow
+- Some local paths are hardcoded and may need adjustment
+- Not the recommended primary path for Claude/Codex (use `telegram-ai-bridge` for SDK-first)
+
+</details>
+
+<details>
+<summary><strong>Known Limits</strong></summary>
 
 - This is a task-api frontend, not a standalone backend
-- Without `openclaw-worker` / task-api, the repository is almost unusable
-- Session maps are stored in memory and are lost on bridge restart
-- Hardcoded local paths may not match other machines
+- Session maps are in-memory — lost on bridge restart
 - Gemini session restore is not equivalent to Claude/Codex
-- The three scripts are manually split and not a unified adapter architecture
-- Results and reliability depend on worker-side task execution and polling success
+- Three scripts are manually split, not a unified adapter
+- Reliability depends on worker-side task execution
+
+</details>
+
+---
 
 ## Author
 
-Built by **小试AI** ([@AliceLJY](https://github.com/AliceLJY))
-
-## WeChat Public Account
-
-WeChat public account: **我的AI小木屋**
+Built by **小试AI** ([@AliceLJY](https://github.com/AliceLJY)) for the WeChat public account **我的AI小木屋**.
 
 <img src="./assets/wechat_qr.jpg" width="200" alt="WeChat QR Code">
 
