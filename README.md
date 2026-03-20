@@ -6,7 +6,7 @@
 
 *Forward Telegram messages to your local task-api, execute on the real CLI, send results back.*
 
-A thin Telegram bridge that drives Claude Code, Codex CLI, and Gemini CLI through `task-api` / `openclaw-worker` — keeping full CLI execution on the machine that owns the files and credentials.
+A thin Telegram bridge that drives Claude Code, Codex CLI, and Gemini CLI through `task-api` / `openclaw-tunnel` — keeping full CLI execution on the machine that owns the files and credentials.
 
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Bun](https://img.shields.io/badge/Runtime-Bun-f9f1e1?logo=bun)](https://bun.sh)
@@ -22,7 +22,7 @@ A thin Telegram bridge that drives Claude Code, Codex CLI, and Gemini CLI throug
 
 A Telegram frontend for `task-api`. Not a standalone backend.
 
-It depends on a working `task-api` / `openclaw-worker` setup. Without that, this repository is close to useless. The bridge accepts Telegram messages, forwards tasks to task-api endpoints, polls for results, and sends responses back.
+It depends on a working `task-api` / `openclaw-tunnel` setup. Without that, this repository is close to useless. The bridge accepts Telegram messages, forwards tasks to task-api endpoints, polls for results, and sends responses back.
 
 > **Core rule:** One bot = one CLI = one task-api route.
 
@@ -31,7 +31,7 @@ It depends on a working `task-api` / `openclaw-worker` setup. Without that, this
 | | telegram-ai-bridge | telegram-cli-bridge (this) |
 |---|---|---|
 | Execution model | SDK-first (in-process adapter) | CLI-first (via task-api worker) |
-| Backend dependency | None — self-contained | Requires `task-api` / `openclaw-worker` |
+| Backend dependency | None — self-contained | Requires `task-api` / `openclaw-tunnel` |
 | Architecture | Unified bridge process | Three separate bot scripts |
 | Best for | Direct SDK integration | Full local CLI execution behind a worker |
 
@@ -47,7 +47,7 @@ Choose this repo when you already have `task-api` running and want Telegram to d
 | **Media forwarding** | Files, photos, and voice input forwarded to task-api |
 | **Result delivery** | Polling + callback style |
 | **Session continuity** | Per-chat, owner-only, in-memory |
-| **Thin bridge** | All execution delegated to `openclaw-worker` |
+| **Thin bridge** | All execution delegated to `openclaw-tunnel` |
 
 ---
 
@@ -105,7 +105,7 @@ These are similar scripts, not a unified adapter abstraction.
 
 **Required:**
 - Bun
-- A working `task-api` / `openclaw-worker` backend
+- A working `task-api` / `openclaw-tunnel` backend
 - Local installs of Claude Code, Codex CLI, and/or Gemini CLI on the backend machine
 - One Telegram bot token per CLI bridge
 - Owner Telegram account
