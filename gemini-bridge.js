@@ -365,7 +365,9 @@ bot.use((ctx, next) => {
     if (ctx.callbackQuery) return next();
     const text = toTextContent(ctx);
     const botUsername = bot.botInfo?.username;
-    const isCommand = text.startsWith("/");
+    // 命令过滤：/cmd 或 /cmd@自己 才处理，/cmd@其他bot 忽略
+    const cmdMatch = text.match(/^\/\w+(?:@(\S+))?/);
+    const isCommand = cmdMatch && (!cmdMatch[1] || cmdMatch[1] === botUsername);
     const isMention = botUsername && text.includes(`@${botUsername}`);
     const isReplyToBot = ctx.message?.reply_to_message?.from?.id === bot.botInfo?.id;
     if (!isCommand && !isMention && !isReplyToBot) return;
