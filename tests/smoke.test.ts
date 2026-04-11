@@ -37,6 +37,26 @@ describe("env validation", () => {
     const stderr = result.stderr.toString();
     expect(stderr).toContain("TELEGRAM_BOT_TOKEN");
   });
+
+  test("bridge.js exits with error if no TASK_API_TOKEN", () => {
+    const result = spawnSync("bun", [path.join(PROJECT_DIR, "bridge.js")], {
+      timeout: 10000,
+      env: { ...process.env, TELEGRAM_BOT_TOKEN: "test-token", TASK_API_TOKEN: "", OWNER_TELEGRAM_ID: "123" },
+    });
+    expect(result.status).toBe(1);
+    const stderr = result.stderr.toString();
+    expect(stderr).toContain("TASK_API_TOKEN");
+  });
+
+  test("bridge.js exits with error if OWNER_TELEGRAM_ID is invalid", () => {
+    const result = spawnSync("bun", [path.join(PROJECT_DIR, "bridge.js")], {
+      timeout: 10000,
+      env: { ...process.env, TELEGRAM_BOT_TOKEN: "test-token", TASK_API_TOKEN: "test-api-token", OWNER_TELEGRAM_ID: "not-a-number" },
+    });
+    expect(result.status).toBe(1);
+    const stderr = result.stderr.toString();
+    expect(stderr).toContain("OWNER_TELEGRAM_ID");
+  });
 });
 
 // ── Path convergence ──────────────────────────────────────────────────────
@@ -76,6 +96,56 @@ describe("security", () => {
   test(".env.example exists as template", () => {
     expect(fs.existsSync(path.join(PROJECT_DIR, ".env.example"))).toBe(true);
   });
+});
+
+// ── Robustness fixes ─────────────────────────────────────────────────────
+
+describe("robustness", () => {
+  for (const script of ["bridge.js", "codex-bridge.js", "gemini-bridge.js"]) {
+    test(`${script} has filename sanitization`, () => {
+      const src = fs.readFileSync(path.join(PROJECT_DIR, script), "utf-8");
+      expect(src).toContain("sanitizeFilename");
+      expect(src).toContain("basename");
+    });
+
+    test(`${script} has session size limit`, () => {
+      const src = fs.readFileSync(path.join(PROJECT_DIR, script), "utf-8");
+      expect(src).toContain("MAX_SESSIONS");
+    });
+
+    test(`${script} has taskId validation`, () => {
+      const src = fs.readFileSync(path.join(PROJECT_DIR, script), "utf-8");
+      expect(src).toContain("validateTaskId");
+    });
+
+    test(`${script} has API_TOKEN validation`, () => {
+      const src = fs.readFileSync(path.join(PROJECT_DIR, script), "utf-8");
+      expect(src).toContain("TASK_API_TOKEN");
+      expect(src).toContain("process.exit(1)");
+    });
+
+    test(`${script} has OWNER_ID NaN check`, () => {
+      const src = fs.readFileSync(path.join(PROJECT_DIR, script), "utf-8");
+      expect(src).toContain("Number.isNaN(OWNER_ID)");
+    });
+
+    test(`${script} has download timeout`, () => {
+      const src = fs.readFileSync(path.join(PROJECT_DIR, script), "utf-8");
+      expect(src).toContain("DOWNLOAD_TIMEOUT_MS");
+      expect(src).toContain("AbortController");
+    });
+
+    test(`${script} has null-safe processing message handling`, () => {
+      const src = fs.readFileSync(path.join(PROJECT_DIR, script), "utf-8");
+      expect(src).toContain("let processing = null");
+      expect(src).toContain("if (processing)");
+    });
+
+    test(`${script} has bot.start error handler`, () => {
+      const src = fs.readFileSync(path.join(PROJECT_DIR, script), "utf-8");
+      expect(src).toContain('}).catch((e)');
+    });
+  }
 });
 
 // ── Doctor script ─────────────────────────────────────────────────────────

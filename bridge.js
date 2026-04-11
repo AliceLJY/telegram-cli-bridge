@@ -5,7 +5,7 @@
 import { Bot, InlineKeyboard } from "grammy";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { mkdirSync, writeFileSync, readdirSync, statSync, unlinkSync } from "fs";
-import { join } from "path";
+import { join, basename } from "path";
 
 // ── 配置 ──
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -19,8 +19,19 @@ const GROUP_CONTEXT_MAX_TOKENS = Number(process.env.GROUP_CONTEXT_MAX_TOKENS || 
 const GROUP_CONTEXT_TTL_MS = Number(process.env.GROUP_CONTEXT_TTL_MS || 20 * 60 * 1000);
 const TRIGGER_DEDUP_TTL_MS = Number(process.env.TRIGGER_DEDUP_TTL_MS || 5 * 60 * 1000);
 
+// ── 启动参数校验 ──
 if (!TOKEN || TOKEN.includes("BotFather")) {
   console.error("请在 .env 中填入 TELEGRAM_BOT_TOKEN");
+  process.exit(1);
+}
+
+if (!API_TOKEN) {
+  console.error("请在 .env 中填入 TASK_API_TOKEN");
+  process.exit(1);
+}
+
+if (Number.isNaN(OWNER_ID) || OWNER_ID <= 0) {
+  console.error("OWNER_TELEGRAM_ID 无效，请填入正确的 Telegram 用户 ID（纯数字）");
   process.exit(1);
 }
 
@@ -37,6 +48,7 @@ const bot = new Bot(TOKEN, {
 });
 
 // ── 会话映射（chatId → { sessionId, lastActive }）── 会话永久保持（sticky）
+const MAX_SESSIONS = 200;
 const sessions = new Map();
 const groupContext = new Map(); // chatId -> [{ messageId, role, source, text, ts }]
 const recentTriggered = new Map(); // `${chatId}:${messageId}` -> ts
@@ -141,6 +153,18 @@ function getSession(chatId) {
 
 function setSession(chatId, sessionId) {
   sessions.set(chatId, { sessionId, lastActive: Date.now() });
+  // Evict oldest sessions when map exceeds limit
+  if (sessions.size > MAX_SESSIONS) {
+    let oldestKey = null;
+    let oldestTime = Infinity;
+    for (const [key, val] of sessions.entries()) {
+      if (val.lastActive < oldestTime) {
+        oldestTime = val.lastActive;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey !== null) sessions.delete(oldestKey);
+  }
 }
 
 // ── task-api 请求封装 ──
@@ -171,8 +195,16 @@ async function apiGet(path) {
   return res.json();
 }
 
+// ── taskId 格式校验 ──
+function validateTaskId(taskId) {
+  if (typeof taskId !== "string" || taskId.length === 0 || taskId.length > 200) return false;
+  // Allow alphanumeric, hyphens, underscores (typical UUID/ID chars)
+  return /^[\w-]+$/.test(taskId);
+}
+
 // ── 轮询等待结果（最多 15 分钟）──
 async function waitForResult(taskId) {
+  if (!validateTaskId(taskId)) throw new Error(`Invalid taskId: ${String(taskId).slice(0, 50)}`);
   const maxWait = 15 * 60 * 1000;
   const pollInterval = 30000; // 长轮询 30s
   const start = Date.now();
@@ -203,22 +235,39 @@ async function sendLong(ctx, text) {
 }
 
 // ── 文件下载目录 ──
-const FILE_DIR = join(process.env.HOME, "Projects/telegram-cli-bridge/files");
+const FILE_DIR = process.env.BRIDGE_FILE_DIR || join(process.env.HOME, "Projects/telegram-cli-bridge/files");
 mkdirSync(FILE_DIR, { recursive: true });
 
+// ── 文件名清理（防路径穿越）──
+function sanitizeFilename(name) {
+  let safe = basename(String(name || "file"));
+  safe = safe.replace(/\.\./g, "_").replace(/[\/\\:*?"<>|]/g, "_");
+  if (!safe || safe === "." || safe === "..") safe = "file";
+  if (safe.length > 200) safe = safe.slice(0, 200);
+  return safe;
+}
+
 // ── 下载 Telegram 文件到本地 ──
+const DOWNLOAD_TIMEOUT_MS = 30_000;
+
 async function downloadFile(ctx, fileId, filename) {
   const file = await ctx.api.getFile(fileId);
   const url = `https://api.telegram.org/file/bot${TOKEN}/${file.file_path}`;
 
-  const resp = PROXY
-    ? await fetch(url, { agent: new HttpsProxyAgent(PROXY) })
-    : await fetch(url);
-
-  const buffer = Buffer.from(await resp.arrayBuffer());
-  const localPath = join(FILE_DIR, `${Date.now()}-${filename}`);
-  writeFileSync(localPath, buffer);
-  return localPath;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+  try {
+    const fetchOpts = { signal: controller.signal };
+    if (PROXY) fetchOpts.agent = new HttpsProxyAgent(PROXY);
+    const resp = await fetch(url, fetchOpts);
+    const buffer = Buffer.from(await resp.arrayBuffer());
+    const safeName = sanitizeFilename(filename);
+    const localPath = join(FILE_DIR, `${Date.now()}-${safeName}`);
+    writeFileSync(localPath, buffer);
+    return localPath;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ── 检测 CC 回复末尾是否在问 是/否 类问题 ──
@@ -243,7 +292,12 @@ function detectQuickReplies(text) {
 // ── 提交 prompt 并等结果（复用逻辑）──
 async function submitAndWait(ctx, prompt) {
   const chatId = ctx.chat.id;
-  const processing = await ctx.reply("CC 正在处理...");
+  let processing = null;
+  try {
+    processing = await ctx.reply("CC 正在处理...");
+  } catch (e) {
+    console.error("[submitAndWait] Failed to send processing message:", e.message);
+  }
 
   try {
     const body = { prompt: buildPromptWithContext(ctx, prompt), timeout: 900000 };
@@ -252,14 +306,20 @@ async function submitAndWait(ctx, prompt) {
 
     const task = await apiPost("/claude", body);
     if (task.error) {
-      await ctx.api.editMessageText(chatId, processing.message_id, `提交失败: ${task.error}`);
+      if (processing) {
+        await ctx.api.editMessageText(chatId, processing.message_id, `提交失败: ${task.error}`);
+      } else {
+        await ctx.reply(`提交失败: ${task.error}`);
+      }
       return;
     }
 
     if (task.sessionId) setSession(chatId, task.sessionId);
 
     const result = await waitForResult(task.taskId);
-    await ctx.api.deleteMessage(chatId, processing.message_id).catch(() => {});
+    if (processing) {
+      await ctx.api.deleteMessage(chatId, processing.message_id).catch(() => {});
+    }
 
     if (result.error) {
       await sendLong(ctx, `CC 错误: ${result.error}`);
@@ -282,7 +342,9 @@ async function submitAndWait(ctx, prompt) {
       await ctx.reply("CC 无输出。");
     }
   } catch (e) {
-    await ctx.api.deleteMessage(chatId, processing.message_id).catch(() => {});
+    if (processing) {
+      await ctx.api.deleteMessage(chatId, processing.message_id).catch(() => {});
+    }
     await ctx.reply(`桥接错误: ${e.message}`);
   }
 }
@@ -448,7 +510,9 @@ function cleanOldFiles() {
         console.log(`[清理] ${f}`);
       }
     }
-  } catch {}
+  } catch (e) {
+    console.error("[cleanOldFiles] error:", e.message);
+  }
 }
 setInterval(cleanOldFiles, 60 * 60 * 1000); // 每小时检查一次
 
@@ -456,4 +520,7 @@ setInterval(cleanOldFiles, 60 * 60 * 1000); // 每小时检查一次
 console.log("Telegram-CC Bridge 启动中...");
 bot.start({
   onStart: () => console.log(`已连接，仅接受用户 ${OWNER_ID} 的消息`),
+}).catch((e) => {
+  console.error("Bot 启动失败:", e.message);
+  process.exit(1);
 });
