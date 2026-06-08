@@ -1,3 +1,5 @@
+> **[Archived]** This repository is no longer maintained and is kept for history only.
+
 <div align="center">
 
 # telegram-cli-bridge
