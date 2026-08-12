@@ -1,3 +1,5 @@
+> **[已归档]** 本仓库已停止维护，仅作为历史记录保留。
+
 <div align="center">
 
 # telegram-cli-bridge
