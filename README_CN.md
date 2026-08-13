@@ -1,4 +1,4 @@
-> **[已归档]** 本仓库已停止维护，仅作为历史记录保留。
+> **[已归档]** 本仓库已停止维护，仅作为历史记录保留。其 task-api 后端现已并入 [openclaw-tunnel](https://github.com/AliceLJY/openclaw-tunnel)；新用户请改用该项目。
 
 <div align="center">
 
@@ -8,7 +8,7 @@
 
 *Telegram 消息转发到本地 task-api，在真实 CLI 上执行，结果推回来。*
 
-一个薄桥接层，通过 `task-api` / `openclaw-worker` 驱动 Claude Code、Codex CLI 和 Gemini CLI——完整 CLI 执行留在拥有文件和凭据的机器上。
+一个薄桥接层，通过 `task-api` / `openclaw-tunnel` 驱动 Claude Code、Codex CLI 和 Gemini CLI——完整 CLI 执行留在拥有文件和凭据的机器上。
 
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Bun](https://img.shields.io/badge/Runtime-Bun-f9f1e1?logo=bun)](https://bun.sh)
@@ -24,7 +24,7 @@
 
 `task-api` 的 Telegram 前端。不是独立后端。
 
-它强依赖一个已经可用的 `task-api` / `openclaw-worker`。没有后端，这个仓库几乎没有实际用途。bridge 接收 Telegram 消息，把任务转发到 task-api 端点，轮询结果，再推回 Telegram。
+它强依赖一个已经可用的 `task-api` / `openclaw-tunnel`。没有后端，这个仓库几乎没有实际用途。bridge 接收 Telegram 消息，把任务转发到 task-api 端点，轮询结果，再推回 Telegram。
 
 > **核心规则：** 一个 bot = 一个 CLI = 一条 task-api 路由。
 
@@ -33,7 +33,7 @@
 | | telegram-ai-bridge | telegram-cli-bridge（本仓库） |
 |---|---|---|
 | 执行模型 | SDK-first（进程内 adapter） | CLI-first（通过 task-api worker） |
-| 后端依赖 | 无——自包含 | 需要 `task-api` / `openclaw-worker` |
+| 后端依赖 | 无——自包含 | 需要 `task-api` / `openclaw-tunnel` |
 | 架构 | 统一 bridge 进程 | 三个独立 bot 脚本 |
 | 适合场景 | 直接 SDK 集成 | worker 背后的完整本地 CLI 执行 |
 
@@ -49,7 +49,7 @@
 | **媒体转发** | 文件、图片、语音输入转发到 task-api |
 | **结果回传** | 轮询 + callback 结合 |
 | **会话续接** | 按 chat、owner-only、内存存储 |
-| **薄桥接** | 所有执行委托给 `openclaw-worker` |
+| **薄桥接** | 所有执行委托给 `openclaw-tunnel` |
 
 ---
 
@@ -107,7 +107,7 @@ bun run start:gemini    # Gemini
 
 **必需：**
 - Bun
-- 可用的 `task-api` / `openclaw-worker` 后端
+- 可用的 `task-api` / `openclaw-tunnel` 后端
 - 在后端机器上安装 Claude Code、Codex CLI 和/或 Gemini CLI
 - 每个 CLI bridge 各一个 Telegram bot token
 - 一个 owner Telegram 账号

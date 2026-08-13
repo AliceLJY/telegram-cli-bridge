@@ -1,4 +1,4 @@
-> **[Archived]** This repository is no longer maintained and is kept for history only.
+> **[Archived]** This repository is no longer maintained and is kept for history only. Its task-api backend now lives in [openclaw-tunnel](https://github.com/AliceLJY/openclaw-tunnel); new users should use that project instead.
 
 <div align="center">
 
